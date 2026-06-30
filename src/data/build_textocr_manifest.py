@@ -1,4 +1,12 @@
-"""Build TextOCR JSONL manifests from derived index files."""
+"""Build unified JSONL manifests for TextOCR (Phase 2B).
+
+Reads derived index files produced by :mod:`scripts.convert_textocr_annotations`
+and emits one JSONL row per image in the common BOPS manifest schema.
+
+CLI::
+
+    python src/data/build_textocr_manifest.py --out data/manifests/textocr_debug.jsonl --limit 50
+"""
 
 from __future__ import annotations
 
@@ -14,12 +22,30 @@ from src.utils.paths import data_path, ensure_dir
 
 
 def resolve_image_path(file_name: str) -> str:
+    """Map TextOCR ``file_name`` (e.g. ``train/abc.jpg``) to repo-relative path.
+
+    Args:
+        file_name: Path from TextOCR annotation JSON.
+
+    Returns:
+        Forward-slash path under ``data/train_val_images/train_images/``.
+    """
     stem = Path(file_name).name
     rel = f"data/train_val_images/train_images/{stem}"
     return rel.replace("\\", "/")
 
 
 def build_manifest(out_path: Path, limit: int | None = None, skip_missing: bool = True) -> int:
+    """Write TextOCR manifest JSONL from index files.
+
+    Args:
+        out_path: Output ``.jsonl`` path.
+        limit: Max rows (``None`` = all images in index).
+        skip_missing: Skip images whose files are not on disk.
+
+    Returns:
+        Number of rows written.
+    """
     index_path = data_path("raw", "textocr", "textocr_imgs_index.json")
     text_path = data_path("raw", "textocr", "textocr_img_text.json")
     with open(index_path, encoding="utf-8") as f:
@@ -55,9 +81,10 @@ def build_manifest(out_path: Path, limit: int | None = None, skip_missing: bool 
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--out", required=True)
-    parser.add_argument("--limit", type=int, default=None)
+    """CLI: build manifest with optional row limit."""
+    parser = argparse.ArgumentParser(description="Build TextOCR JSONL manifest.")
+    parser.add_argument("--out", required=True, help="Output .jsonl path")
+    parser.add_argument("--limit", type=int, default=None, help="Max samples")
     args = parser.parse_args()
     n = build_manifest(Path(args.out), limit=args.limit)
     print(f"Wrote {n} rows to {args.out}")

@@ -1,8 +1,17 @@
-"""OCR-guided patch scoring."""
+"""OCR-guided patch scoring for BOPS (Step 5 of the pipeline).
+
+Combines four signals to rank candidate patches:
+    - text_coverage: fraction of OCR box area overlapped by the patch
+    - text_confidence: mean OCR confidence for boxes in the patch
+    - edge_density: gradient magnitude (text-like structure)
+    - entropy: grayscale histogram entropy (information content)
+
+Default weights favor OCR signals (0.4 + 0.3) with smaller weight on
+image-only cues (0.15 + 0.15). Used by :mod:`src.preprocessing.bops` before NMS.
+"""
 
 from __future__ import annotations
 
-import math
 from typing import Any
 
 import numpy as np
@@ -12,12 +21,14 @@ from src.preprocessing.patch_grid import Patch
 
 
 def _box_area(box: list) -> float:
+    """Compute axis-aligned area of a quadrilateral OCR box."""
     xs = [p[0] for p in box]
     ys = [p[1] for p in box]
     return max(0, max(xs) - min(xs)) * max(0, max(ys) - min(ys))
 
 
 def _intersection_area(patch: Patch, box: list) -> float:
+    """Pixel area of overlap between a patch rectangle and an OCR box."""
     bx0, bx1 = min(p[0] for p in box), max(p[0] for p in box)
     by0, by1 = min(p[1] for p in box), max(p[1] for p in box)
     px0, py0 = patch.x, patch.y
@@ -28,6 +39,15 @@ def _intersection_area(patch: Patch, box: list) -> float:
 
 
 def text_coverage_score(patch: Patch, ocr_boxes: list[dict[str, Any]]) -> float:
+    """Fraction of total OCR text box area covered by this patch.
+
+    Args:
+        patch: Candidate patch region.
+        ocr_boxes: List of dicts with ``box`` (4-point polygon) keys.
+
+    Returns:
+        Value in [0, 1]; 0 if no OCR boxes exist.
+    """
     total_text = 0.0
     covered = 0.0
     for b in ocr_boxes:
@@ -41,6 +61,15 @@ def text_coverage_score(patch: Patch, ocr_boxes: list[dict[str, Any]]) -> float:
 
 
 def text_confidence_score(patch: Patch, ocr_boxes: list[dict[str, Any]]) -> float:
+    """Mean OCR confidence for boxes intersecting the patch.
+
+    Args:
+        patch: Candidate patch region.
+        ocr_boxes: OCR detections with ``box`` and optional ``confidence``.
+
+    Returns:
+        Mean confidence in [0, 1], or 0.0 if no overlapping boxes.
+    """
     confs = []
     for b in ocr_boxes:
         if _intersection_area(patch, b["box"]) > 0:
@@ -49,6 +78,15 @@ def text_confidence_score(patch: Patch, ocr_boxes: list[dict[str, Any]]) -> floa
 
 
 def edge_density_score(image: Image.Image, patch: Patch) -> float:
+    """Normalized mean gradient magnitude inside the patch (text proxy).
+
+    Args:
+        image: Full source image.
+        patch: Region to score.
+
+    Returns:
+        Scalar in roughly [0, 1].
+    """
     crop = image.crop((patch.x, patch.y, patch.x + patch.w, patch.y + patch.h))
     gray = np.array(crop.convert("L"), dtype=np.float32)
     if gray.size == 0:
@@ -59,6 +97,15 @@ def edge_density_score(image: Image.Image, patch: Patch) -> float:
 
 
 def entropy_score(image: Image.Image, patch: Patch) -> float:
+    """Normalized grayscale entropy inside the patch.
+
+    Args:
+        image: Full source image.
+        patch: Region to score.
+
+    Returns:
+        Entropy scaled by log2(256) ≈ 8.
+    """
     crop = image.crop((patch.x, patch.y, patch.x + patch.w, patch.y + patch.h))
     gray = np.array(crop.convert("L"))
     if gray.size == 0:
@@ -74,6 +121,17 @@ def score_patch(
     ocr_boxes: list[dict[str, Any]],
     weights: dict[str, float] | None = None,
 ) -> float:
+    """Compute weighted patch importance score.
+
+    Args:
+        image: Full source image (for edge/entropy).
+        patch: Candidate patch.
+        ocr_boxes: OCR detections from the full image.
+        weights: Optional override for component weights.
+
+    Returns:
+        Combined score (higher = more important for selection).
+    """
     w = weights or {
         "text_coverage": 0.4,
         "text_confidence": 0.3,

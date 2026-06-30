@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Run preprocessing smoke test or batch transforms from YAML config."""
+"""Preprocessing smoke test and YAML-driven transform runner (Phase 1 gate).
+
+Loads a single image from config, applies resize (or future transforms), writes
+output image and metadata CSV. Validates repo paths and I/O utilities.
+
+Run::
+
+    python scripts/run_preprocessing.py --config configs/smoke_test.yaml
+"""
 
 from __future__ import annotations
 
@@ -20,6 +28,12 @@ from src.utils.paths import data_path, outputs_path, repo_path
 
 
 def run_smoke(cfg: dict) -> None:
+    """Execute smoke-test preprocessing from a loaded YAML config.
+
+    Args:
+        cfg: Config dict with ``input_image``, ``output_dir``, ``area_ratio``,
+            and optional ``metadata_csv``.
+    """
     logger = setup_logging()
     img_rel = cfg["input_image"]
     img_path = data_path(*Path(img_rel).parts) if not Path(img_rel).is_absolute() else Path(img_rel)
@@ -56,7 +70,8 @@ def run_smoke(cfg: dict) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
+    """CLI entry point."""
+    parser = argparse.ArgumentParser(description="Run preprocessing from YAML config.")
     parser.add_argument("--config", required=True, help="Path to YAML config")
     args = parser.parse_args()
     cfg = load_config(args.config)

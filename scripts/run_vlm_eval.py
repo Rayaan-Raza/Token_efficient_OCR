@@ -1,5 +1,20 @@
 #!/usr/bin/env python3
-"""Run VLM DocVQA evaluation."""
+"""Run VLM DocVQA evaluation (Phases 9–10).
+
+Evaluates document QA under different preprocessing methods:
+    - resize: single downscaled image
+    - overview_only: low-res global context only
+    - random / uniform / bops: overview + K patches
+
+Writes Exact Match, ANLS, and runtime to ``outputs/metrics/vlm_metrics.csv``.
+Use ``--dry-run`` to test the pipeline without loading Qwen2.5-VL.
+
+Example::
+
+    python scripts/run_vlm_eval.py \\
+        --manifest data/manifests/docvqa_debug.jsonl \\
+        --method bops --num-patches 4 --limit 5
+"""
 
 from __future__ import annotations
 
@@ -21,12 +36,16 @@ from src.vlm.run_vlm import run_vlm_overview_patches, run_vlm_single
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--manifest", required=True)
-    parser.add_argument("--method", default="bops", choices=["resize", "overview_only", "random", "uniform", "bops"])
-    parser.add_argument("--num-patches", type=int, default=4)
-    parser.add_argument("--limit", type=int, default=5)
-    parser.add_argument("--dry-run", action="store_true", help="Skip model load; write placeholder answers")
+    """CLI: VLM QA eval over a DocVQA manifest."""
+    parser = argparse.ArgumentParser(description="VLM DocVQA evaluation.")
+    parser.add_argument("--manifest", required=True, help="DocVQA JSONL manifest")
+    parser.add_argument(
+        "--method", default="bops",
+        choices=["resize", "overview_only", "random", "uniform", "bops"],
+    )
+    parser.add_argument("--num-patches", type=int, default=4, help="Patch budget for BOPS modes")
+    parser.add_argument("--limit", type=int, default=5, help="Max QA samples")
+    parser.add_argument("--dry-run", action="store_true", help="Skip model; placeholder answers")
     args = parser.parse_args()
 
     rows = []

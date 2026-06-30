@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-"""Regenerate paper tables from metrics CSVs."""
+"""Regenerate paper tables from experiment metric CSVs (Phase 16).
+
+Produces:
+    - ``paper/tables/table_ocr_budget.csv`` — mean CER/WER by method and budget
+    - ``paper/tables/table_vlm_patches.csv`` — mean EM/ANLS by method and patch count
+
+Invalid-budget OCR rows are excluded from OCR aggregates.
+
+Run::
+
+    python scripts/make_paper_assets.py
+"""
 
 from __future__ import annotations
 
@@ -15,6 +26,7 @@ from src.utils.paths import outputs_path, repo_path
 
 
 def main() -> None:
+    """Build paper table CSVs from latest experiment outputs."""
     paper_tables = repo_path("paper", "tables")
     paper_tables.mkdir(parents=True, exist_ok=True)
     ocr_csv = outputs_path("metrics", "ocr_metrics.csv")

@@ -1,4 +1,12 @@
-"""Build DocVQA subset manifests from existing export."""
+"""Build DocVQA subset manifests from the Hugging Face export (Phase 2B).
+
+Slices an existing ``docvqa_val_500.jsonl`` (or similar) into smaller debug/pilot
+manifests for fast iteration.
+
+CLI::
+
+    python src/data/build_docvqa_manifest.py --out data/manifests/docvqa_debug.jsonl --limit 20
+"""
 
 from __future__ import annotations
 
@@ -14,6 +22,16 @@ from src.utils.paths import data_path, ensure_dir
 
 
 def build_subset(source: Path, out_path: Path, limit: int) -> int:
+    """Copy the first ``limit`` rows from a DocVQA manifest.
+
+    Args:
+        source: Source JSONL (full validation export).
+        out_path: Destination JSONL.
+        limit: Maximum number of QA samples.
+
+    Returns:
+        Number of rows written.
+    """
     rows = []
     with open(source, encoding="utf-8") as f:
         for line in f:
@@ -28,7 +46,8 @@ def build_subset(source: Path, out_path: Path, limit: int) -> int:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
+    """CLI: slice DocVQA manifest."""
+    parser = argparse.ArgumentParser(description="Build DocVQA subset manifest.")
     parser.add_argument("--source", default=str(data_path("manifests", "docvqa_val_500.jsonl")))
     parser.add_argument("--out", required=True)
     parser.add_argument("--limit", type=int, default=20)

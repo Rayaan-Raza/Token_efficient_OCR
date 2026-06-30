@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Categorize VLM failures from results CSV."""
+"""Categorize VLM QA failures for failure analysis (Phase 15).
+
+Reads ``outputs/metrics/vlm_metrics.csv``, extracts non-exact-match rows,
+assigns coarse failure types, and writes:
+    - ``outputs/failure_cases/vlm_failures.csv``
+    - ``outputs/failure_cases/failure_summary.csv``
+
+Run::
+
+    python scripts/analyze_failures.py
+"""
 
 from __future__ import annotations
 
@@ -15,6 +25,7 @@ from src.utils.paths import outputs_path
 
 
 def main() -> None:
+    """Extract and summarize VLM failures from the latest metrics file."""
     vlm_csv = outputs_path("metrics", "vlm_metrics.csv")
     if not vlm_csv.exists():
         print("No VLM metrics found")

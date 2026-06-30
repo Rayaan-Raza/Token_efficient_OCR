@@ -1,4 +1,7 @@
-"""Plot budget degradation curves."""
+"""Matplotlib figures for paper and pilot experiments.
+
+Regenerates budget degradation curves from CSV metric files (no screenshot plots).
+"""
 
 from __future__ import annotations
 
@@ -9,6 +12,15 @@ import pandas as pd
 
 
 def plot_cer_vs_budget(csv_path: Path, out_path: Path, budget_col: str = "budget") -> None:
+    """Plot mean CER vs budget for each preprocessing method.
+
+    Excludes rows with ``invalid_budget=True`` and missing CER values.
+
+    Args:
+        csv_path: Input ``ocr_metrics.csv`` from OCR evaluation.
+        out_path: Output PNG path.
+        budget_col: Column name for x-axis budget labels.
+    """
     df = pd.read_csv(csv_path)
     if "cer" not in df.columns:
         print(f"Skipping plot: no cer column in {csv_path}")

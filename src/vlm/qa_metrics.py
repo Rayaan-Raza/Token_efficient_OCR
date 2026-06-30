@@ -1,4 +1,10 @@
-"""VLM QA metrics: Exact Match and ANLS."""
+"""Document VQA metrics: Exact Match and ANLS.
+
+Used for DocVQA evaluation (Phase 9–10). Ground truth may be a list of
+acceptable answer strings; metrics take the best score across references.
+
+ANLS uses normalized Levenshtein distance with a 0.5 threshold (DocVQA standard).
+"""
 
 from __future__ import annotations
 
@@ -7,12 +13,22 @@ import string
 
 
 def _normalize(s: str) -> str:
+    """Lowercase, remove punctuation, collapse whitespace."""
     s = s.lower().strip()
     s = s.translate(str.maketrans("", "", string.punctuation))
     return re.sub(r"\s+", " ", s)
 
 
 def exact_match(prediction: str, ground_truths: list[str]) -> float:
+    """Return 1.0 if prediction exactly matches any normalized reference.
+
+    Args:
+        prediction: Model answer string.
+        ground_truths: List of acceptable answers from the dataset.
+
+    Returns:
+        ``1.0`` or ``0.0``.
+    """
     pred = _normalize(prediction)
     for gt in ground_truths:
         if pred == _normalize(gt):
@@ -21,6 +37,7 @@ def exact_match(prediction: str, ground_truths: list[str]) -> float:
 
 
 def _levenshtein(a: str, b: str) -> int:
+    """Classic dynamic-programming edit distance."""
     if not a:
         return len(b)
     if not b:
@@ -35,6 +52,19 @@ def _levenshtein(a: str, b: str) -> int:
 
 
 def anls(prediction: str, ground_truths: list[str], threshold: float = 0.5) -> float:
+    """Average Normalized Levenshtein Similarity (best over references).
+
+    Score is ``1 - normalized_distance`` if distance ratio < ``threshold``,
+    else ``0``.
+
+    Args:
+        prediction: Model answer.
+        ground_truths: Acceptable reference answers.
+        threshold: ANLS cutoff (default 0.5 per DocVQA).
+
+    Returns:
+        Score in [0, 1].
+    """
     pred = _normalize(prediction)
     if not ground_truths:
         return 0.0

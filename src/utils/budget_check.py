@@ -1,4 +1,23 @@
-"""Budget fairness enforcement for publishable comparisons."""
+"""Budget fairness enforcement for publishable preprocessing comparisons.
+
+Every preprocessing method in BOPS must operate under a declared visual budget
+(pixels, bytes, or patch count). This module validates that actual resource use
+matches the target within tolerance and sets ``invalid_budget=True`` when it does
+not. Rows marked invalid must be excluded from aggregate metrics and paper tables.
+
+Tolerances (from the implementation plan):
+    - Pixel (area): ±3% (``PIXEL_TOLERANCE``)
+    - Byte (JPEG/WebP): ±2% (``BYTE_TOLERANCE``)
+    - Patch count: exact match (zero tolerance)
+
+Example::
+
+    from src.utils.budget_check import check_pixel_budget, merge_budget_fields
+
+    result = check_pixel_budget(actual_pixels=480000, target_pixels=500000)
+    row = merge_budget_fields({"method": "resize"}, result)
+    assert "invalid_budget" in row
+"""
 
 from __future__ import annotations
 
@@ -11,6 +30,16 @@ BYTE_TOLERANCE = 0.02
 
 @dataclass
 class BudgetResult:
+    """Outcome of a single budget compliance check.
+
+    Attributes:
+        budget_type: One of ``"pixel"``, ``"byte"``, or ``"patch"``.
+        budget_target: Declared budget value.
+        budget_actual: Measured value after preprocessing.
+        invalid_budget: True if the result must be excluded from aggregates.
+        tolerance: Relative tolerance used (0.0 for exact patch counts).
+    """
+
     budget_type: str
     budget_target: float
     budget_actual: float
@@ -18,16 +47,27 @@ class BudgetResult:
     tolerance: float
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to a flat dict suitable for CSV/JSONL metadata rows."""
         return asdict(self)
 
 
 def _within_tolerance(actual: float, target: float, tolerance: float) -> bool:
+    """Return True if ``actual`` is within ``tolerance`` of ``target`` (relative)."""
     if target <= 0:
         return actual == target
     return abs(actual - target) / target <= tolerance
 
 
 def check_pixel_budget(actual_pixels: int, target_pixels: int) -> BudgetResult:
+    """Validate total pixel count against a target area budget.
+
+    Args:
+        actual_pixels: Width × height of the transformed image.
+        target_pixels: Target pixel count (e.g. original_area × area_ratio).
+
+    Returns:
+        :class:`BudgetResult` with ``budget_type="pixel"``.
+    """
     return BudgetResult(
         budget_type="pixel",
         budget_target=float(target_pixels),
@@ -38,6 +78,15 @@ def check_pixel_budget(actual_pixels: int, target_pixels: int) -> BudgetResult:
 
 
 def check_byte_budget(actual_bytes: int, target_bytes: int) -> BudgetResult:
+    """Validate encoded file size against a byte budget.
+
+    Args:
+        actual_bytes: Size of the compressed file on disk.
+        target_bytes: Target size in bytes (e.g. 200 * 1024 for 200 KB).
+
+    Returns:
+        :class:`BudgetResult` with ``budget_type="byte"``.
+    """
     return BudgetResult(
         budget_type="byte",
         budget_target=float(target_bytes),
@@ -48,6 +97,15 @@ def check_byte_budget(actual_bytes: int, target_bytes: int) -> BudgetResult:
 
 
 def check_patch_budget(actual_patches: int, target_patches: int) -> BudgetResult:
+    """Validate patch count (must match exactly).
+
+    Args:
+        actual_patches: Number of high-resolution patches emitted.
+        target_patches: Configured patch budget (e.g. 4 for overview + 4 patches).
+
+    Returns:
+        :class:`BudgetResult` with ``budget_type="patch"``.
+    """
     return BudgetResult(
         budget_type="patch",
         budget_target=float(target_patches),
@@ -58,5 +116,14 @@ def check_patch_budget(actual_patches: int, target_patches: int) -> BudgetResult
 
 
 def merge_budget_fields(row: dict[str, Any], result: BudgetResult) -> dict[str, Any]:
+    """Attach budget check fields to an existing metadata/result row in place.
+
+    Args:
+        row: Mutable dict (e.g. preprocessing metadata or eval result).
+        result: Outcome from a ``check_*_budget`` function.
+
+    Returns:
+        The same ``row`` dict with budget fields merged in.
+    """
     row.update(result.to_dict())
     return row

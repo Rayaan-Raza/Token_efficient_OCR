@@ -1,8 +1,15 @@
-"""Run Qwen2.5-VL-3B for DocVQA."""
+"""Qwen2.5-VL-3B inference for DocVQA under BOPS preprocessing.
+
+Loads the vision-language model once (4-bit quantization by default for limited
+VRAM) and supports:
+    - Single-image QA (resize baseline)
+    - Overview + multi-patch QA (BOPS layout)
+
+Requires GPU, ``transformers``, and ``bitsandbytes`` for 4-bit loading.
+"""
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import torch
@@ -16,6 +23,15 @@ _processor = None
 
 
 def load_vlm(model_name: str = "Qwen/Qwen2.5-VL-3B-Instruct", load_in_4bit: bool = True):
+    """Load or return cached Qwen2.5-VL model and processor.
+
+    Args:
+        model_name: Hugging Face model id.
+        load_in_4bit: Use 4-bit quantization (recommended for 3B on ~8GB VRAM).
+
+    Returns:
+        Tuple of (model, processor).
+    """
     global _model, _processor
     if _model is not None:
         return _model, _processor
@@ -29,6 +45,16 @@ def load_vlm(model_name: str = "Qwen/Qwen2.5-VL-3B-Instruct", load_in_4bit: bool
 
 
 def _generate(images: list[Image.Image], prompt: str, max_new_tokens: int = 64) -> str:
+    """Run chat-template generation with one or more images.
+
+    Args:
+        images: PIL images in prompt order.
+        prompt: Text prompt (from :mod:`prompt_templates`).
+        max_new_tokens: Generation length cap.
+
+    Returns:
+        Parsed answer string.
+    """
     model, processor = load_vlm()
     messages = [{"role": "user", "content": [{"type": "image", "image": im} for im in images] + [{"type": "text", "text": prompt}]}]
     text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
@@ -41,6 +67,15 @@ def _generate(images: list[Image.Image], prompt: str, max_new_tokens: int = 64) 
 
 
 def run_vlm_single(image: Image.Image, question: str) -> str:
+    """Answer a DocVQA question given a single preprocessed image.
+
+    Args:
+        image: Visual input (e.g. resized full page).
+        question: Document question.
+
+    Returns:
+        Model answer string.
+    """
     prompt = format_single(question)
     return _generate([image], prompt)
 
@@ -50,6 +85,16 @@ def run_vlm_overview_patches(
     patches: list[Image.Image],
     question: str,
 ) -> str:
+    """Answer a DocVQA question using overview + high-res patches (BOPS).
+
+    Args:
+        overview: Low-resolution full-page image.
+        patches: List of high-resolution patch crops.
+        question: Document question.
+
+    Returns:
+        Model answer string.
+    """
     prompt = format_overview_patches(question)
     images = [overview] + patches
     return _generate(images, prompt)

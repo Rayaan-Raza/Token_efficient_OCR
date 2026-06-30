@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Generate plots from metric CSVs."""
+"""Generate budget degradation plots from OCR metric CSVs (Phase 5, 16).
+
+Reads ``outputs/metrics/ocr_metrics.csv`` and writes CER-vs-budget curves to
+``outputs/plots/``. Excludes invalid-budget rows.
+
+Run::
+
+    python scripts/generate_plots.py
+"""
 
 from __future__ import annotations
 
@@ -15,7 +23,8 @@ from src.visualization.plot_budget_curves import plot_cer_vs_budget
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
+    """CLI: plot CER vs budget if metrics CSV exists."""
+    parser = argparse.ArgumentParser(description="Generate experiment plots.")
     parser.add_argument("--ocr-csv", default=str(outputs_path("metrics", "ocr_metrics.csv")))
     args = parser.parse_args()
     csv_path = Path(args.ocr_csv)

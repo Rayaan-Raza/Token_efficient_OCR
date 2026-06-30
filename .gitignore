@@ -11,6 +11,17 @@ data/raw/**/images/
 Data/raw/**/images/
 Data/train_val_images/
 data/train_val_images/
+# Image files anywhere in the repo (datasets, exports, experiment outputs)
+**/*.jpg
+**/*.jpeg
+**/*.png
+**/*.webp
+**/*.gif
+**/*.bmp
+**/*.tiff
+**/*.tif
+# Keep paper figures if added under paper/figures/ intentionally — un-ignore if needed:
+# !paper/figures/*.png
 Data/TextOCR_0.1_train.txt
 data/raw/textocr/TextOCR_0.1_train.json
 data/raw/textocr/textocr_img_to_anns.json

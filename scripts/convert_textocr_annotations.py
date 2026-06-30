@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Convert TextOCR .txt annotations to .json and derived index files."""
+"""Convert TextOCR ``.txt`` annotations to JSON and derived index files (Phase 2A).
+
+The source file is valid JSON but ~280 MB and misnamed. This script:
+    1. Validates parseability
+    2. Writes compact ``TextOCR_0.1_train.json``
+    3. Writes smaller index files for fast manifest building
+
+Run::
+
+    python scripts/convert_textocr_annotations.py
+"""
 
 from __future__ import annotations
 
@@ -15,6 +25,12 @@ from src.utils.paths import data_path, ensure_dir
 
 
 def convert(source: Path, out_dir: Path) -> None:
+    """Load TextOCR annotations and write canonical + index JSON files.
+
+    Args:
+        source: Path to ``TextOCR_0.1_train.txt`` (JSON content).
+        out_dir: Output directory (e.g. ``data/raw/textocr/``).
+    """
     print(f"Loading {source} ...")
     with open(source, encoding="utf-8") as f:
         data = json.load(f)
@@ -63,7 +79,8 @@ def convert(source: Path, out_dir: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
+    """CLI: convert annotations with optional source/out-dir overrides."""
+    parser = argparse.ArgumentParser(description="Convert TextOCR annotations to JSON indexes.")
     parser.add_argument(
         "--source",
         default=str(data_path("TextOCR_0.1_train.txt")),

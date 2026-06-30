@@ -1,10 +1,21 @@
 #!/usr/bin/env python3
-"""Run OCR evaluation on a manifest."""
+"""Run OCR evaluation on a TextOCR manifest (Phases 4–5, 8).
+
+Applies preprocessing methods (original, resize, JPEG, WebP, BOPS) under declared
+budgets, runs OCR (or dry-run), and writes per-sample CER/WER/word recall to
+``outputs/metrics/ocr_metrics.csv``. Budget fields are included for fairness filtering.
+
+Example::
+
+    python scripts/run_ocr_eval.py \\
+        --manifest data/manifests/textocr_pilot.jsonl \\
+        --methods original resize jpeg bops \\
+        --budgets area_0.5 kb_200 --limit 20
+"""
 
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 import time
 from pathlib import Path
@@ -23,6 +34,22 @@ from src.utils.paths import outputs_path, repo_path
 
 
 def apply_method(image, method: str, budget: str, out_dir: Path, image_id: str, fast: bool = False):
+    """Apply one preprocessing method and write transformed image to disk.
+
+    Args:
+        image: Source PIL image.
+        method: ``original``, ``resize``, ``jpeg``, ``webp``, or ``bops``.
+        budget: Budget token (e.g. ``area_0.5``, ``kb_200``, ``patches_4``).
+        out_dir: Directory for transformed outputs.
+        image_id: Sample id for filenames.
+        fast: If True, BOPS uses random patches (skips OCR for scoring).
+
+    Returns:
+        Tuple of (output_path, metadata dict).
+
+    Raises:
+        ValueError: Unknown method name.
+    """
     meta = {"method": method, "budget": budget}
     if method == "original":
         path = out_dir / f"{image_id}_orig.png"
@@ -60,12 +87,13 @@ def apply_method(image, method: str, budget: str, out_dir: Path, image_id: str, 
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
+    """CLI: run OCR eval over manifest × methods × budgets."""
+    parser = argparse.ArgumentParser(description="OCR evaluation on a manifest.")
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--methods", nargs="+", default=["original", "resize"])
     parser.add_argument("--budgets", nargs="+", default=["area_0.5"])
     parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--dry-run", action="store_true", help="Skip PaddleOCR; use empty predictions")
+    parser.add_argument("--dry-run", action="store_true", help="Skip OCR; use empty predictions")
     args = parser.parse_args()
 
     out_dir = outputs_path("ocr_results")
@@ -80,11 +108,10 @@ def main() -> None:
             for budget in args.budgets:
                 t0 = time.perf_counter()
                 try:
-                    out_path, meta = apply_method(image, method, budget, out_dir, record["image_id"], fast=args.dry_run)
-                    if args.dry_run:
-                        pred = ""
-                    else:
-                        pred = run_ocr_on_image(out_path)
+                    out_path, meta = apply_method(
+                        image, method, budget, out_dir, record["image_id"], fast=args.dry_run
+                    )
+                    pred = "" if args.dry_run else run_ocr_on_image(out_path)
                     row = {
                         "image_id": record["image_id"],
                         "method": method,

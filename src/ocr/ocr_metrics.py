@@ -1,4 +1,14 @@
-"""OCR metrics: CER, WER, word recall (canonical v1)."""
+"""OCR evaluation metrics: CER, WER, and word recall (canonical v1).
+
+**Word recall (v1)** — single definition used everywhere in this repo::
+
+    word_recall = matched_gt_tokens / total_gt_tokens
+
+Matching uses normalized exact tokens (count-aware multiset). See
+:func:`word_recall` for details. Do not reimplement elsewhere.
+
+CER/WER are computed via ``jiwer`` on normalized strings.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +18,15 @@ from src.ocr.normalize_text import normalize_text, tokenize
 
 
 def cer(prediction: str, ground_truth: str) -> float:
+    """Character Error Rate between prediction and ground truth.
+
+    Args:
+        prediction: OCR output string.
+        ground_truth: Reference text.
+
+    Returns:
+        CER in [0, ∞); 0 is perfect. Empty GT with non-empty pred returns 1.0.
+    """
     p, g = normalize_text(prediction), normalize_text(ground_truth)
     if not g:
         return 0.0 if not p else 1.0
@@ -15,6 +34,15 @@ def cer(prediction: str, ground_truth: str) -> float:
 
 
 def wer(prediction: str, ground_truth: str) -> float:
+    """Word Error Rate between prediction and ground truth.
+
+    Args:
+        prediction: OCR output string.
+        ground_truth: Reference text.
+
+    Returns:
+        WER in [0, ∞); 0 is perfect.
+    """
     p, g = normalize_text(prediction), normalize_text(ground_truth)
     if not g:
         return 0.0 if not p else 1.0
@@ -22,7 +50,20 @@ def wer(prediction: str, ground_truth: str) -> float:
 
 
 def word_recall(prediction: str, ground_truth: str) -> float:
-    """matched normalized GT tokens / total GT tokens (exact, count-aware)."""
+    """Canonical v1 word recall: matched GT tokens / total GT tokens.
+
+    Procedure:
+        1. Normalize and tokenize both strings.
+        2. Each GT token matches at most one identical prediction token
+           (count-aware).
+
+    Args:
+        prediction: OCR output string.
+        ground_truth: Reference text.
+
+    Returns:
+        Recall in [0, 1]. Empty GT with empty pred → 1.0; empty GT with pred → 0.0.
+    """
     gt_tokens = tokenize(ground_truth)
     if not gt_tokens:
         return 1.0 if not tokenize(prediction) else 0.0

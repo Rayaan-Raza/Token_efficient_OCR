@@ -1,3 +1,17 @@
+#!/usr/bin/env python3
+"""Stream DocVQA validation samples from Hugging Face into local images + JSONL.
+
+Uses ``datasets`` streaming mode to avoid downloading the full ~9.5 GB dataset.
+Exports PNG images and a unified manifest compatible with :mod:`src.data`.
+
+Default export: 500 validation QA pairs → ``data/raw/docvqa_hf/images/`` and
+``data/manifests/docvqa_val_500.jsonl``.
+
+Run::
+
+    python scripts/download_docvqa_hf.py
+"""
+
 from datasets import load_dataset
 from pathlib import Path
 from tqdm import tqdm

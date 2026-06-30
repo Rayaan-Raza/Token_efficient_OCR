@@ -1,4 +1,13 @@
-"""Validate JSONL manifest files."""
+"""JSONL manifest validation (Phase 2B gate).
+
+Checks required fields, duplicate ``image_id`` values, and that every
+``image_path`` resolves to an existing file on disk. Used before running
+OCR/VLM experiments to catch broken manifests early.
+
+CLI::
+
+    python src/data/validate_manifest.py --manifest data/manifests/textocr_debug.jsonl
+"""
 
 from __future__ import annotations
 
@@ -16,6 +25,16 @@ REQUIRED_FIELDS = {"image_id", "dataset", "split", "image_path"}
 
 
 def _resolve_image_path(ip: str) -> Path:
+    """Resolve manifest ``image_path`` to an absolute filesystem path.
+
+    Tries repo-relative path first, then ``data_path`` with ``data/`` prefix stripped.
+
+    Args:
+        ip: Path string from manifest row.
+
+    Returns:
+        Absolute :class:`~pathlib.Path` (may not exist).
+    """
     p = Path(ip)
     if p.is_absolute():
         return p
@@ -29,6 +48,14 @@ def _resolve_image_path(ip: str) -> Path:
 
 
 def validate_manifest(manifest_path: Path) -> dict:
+    """Validate a JSONL manifest file.
+
+    Args:
+        manifest_path: Path to ``.jsonl`` manifest.
+
+    Returns:
+        Dict with ``rows``, ``errors`` (list of messages), and ``valid`` bool.
+    """
     rows = []
     errors = []
     seen_ids = set()
@@ -65,8 +92,9 @@ def validate_manifest(manifest_path: Path) -> dict:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--manifest", required=True)
+    """CLI entry: print JSON result and exit 1 if invalid."""
+    parser = argparse.ArgumentParser(description="Validate a BOPS JSONL manifest.")
+    parser.add_argument("--manifest", required=True, help="Path to .jsonl manifest")
     args = parser.parse_args()
     result = validate_manifest(Path(args.manifest))
     print(json.dumps(result, indent=2))

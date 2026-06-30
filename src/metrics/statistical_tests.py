@@ -1,4 +1,8 @@
-"""Statistical tests for paper claims."""
+"""Statistical tests for defensible paper claims (Phase 14).
+
+Provides bootstrap confidence intervals for paired metric differences.
+Holm correction and McNemar tests can be added as the paper experiments mature.
+"""
 
 from __future__ import annotations
 
@@ -11,6 +15,17 @@ def bootstrap_ci(
     alpha: float = 0.05,
     seed: int = 42,
 ) -> tuple[float, float, float]:
+    """Bootstrap confidence interval for the mean of paired differences.
+
+    Args:
+        diffs: Per-sample paired differences (method A − method B).
+        n_boot: Number of bootstrap resamples.
+        alpha: Significance level (default 0.05 → 95% CI).
+        seed: RNG seed for reproducibility.
+
+    Returns:
+        Tuple of (mean, lower_bound, upper_bound).
+    """
     rng = np.random.default_rng(seed)
     arr = np.array(diffs, dtype=float)
     if len(arr) == 0:

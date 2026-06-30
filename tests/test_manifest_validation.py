@@ -1,3 +1,8 @@
+"""Unit tests for manifest schema validation (:mod:`src.data.validate_manifest`).
+
+Verifies that duplicate ``image_id`` values are rejected before experiments run.
+"""
+
 import json
 import tempfile
 from pathlib import Path
@@ -8,6 +13,7 @@ from src.data.validate_manifest import validate_manifest
 
 
 def test_manifest_validation_rejects_duplicate_ids():
+    """A manifest with repeated image_id rows must fail validation."""
     with tempfile.TemporaryDirectory() as td:
         img_path = Path(td) / "a.png"
         Image.new("RGB", (10, 10)).save(img_path)

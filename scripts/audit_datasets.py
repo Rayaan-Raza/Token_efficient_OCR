@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
-"""Audit TextOCR and DocVQA datasets before manifest building."""
+"""Dataset integrity audit before manifest building (Phase 2A gate).
+
+Verifies TextOCR annotation structure, image filename mapping, on-disk image counts,
+and DocVQA manifest/image consistency. Writes human-readable and machine-readable
+reports to ``outputs/audit/``.
+
+Gate 2A passes when:
+    - TextOCR sample checks pass and missing-image rate ≤ 1%
+    - DocVQA has zero missing images and zero duplicate IDs
+
+Run::
+
+    python scripts/audit_datasets.py
+"""
 
 from __future__ import annotations
 
@@ -16,7 +29,14 @@ from src.utils.paths import data_path, outputs_path, ensure_dir
 
 
 def resolve_image_path(file_name: str) -> Path:
-    # file_name like train/{id}.jpg
+    """Map TextOCR ``file_name`` to the first existing local image path.
+
+    Args:
+        file_name: Relative path from annotation (e.g. ``train/{id}.jpg``).
+
+    Returns:
+        Absolute path (first candidate if none exist).
+    """
     stem = Path(file_name).name
     candidates = [
         data_path("train_val_images", "train_images", stem),
@@ -29,6 +49,15 @@ def resolve_image_path(file_name: str) -> Path:
 
 
 def audit_textocr(index_path: Path, text_path: Path) -> dict:
+    """Audit TextOCR derived index files against on-disk images.
+
+    Args:
+        index_path: ``textocr_imgs_index.json``
+        text_path: ``textocr_img_text.json``
+
+    Returns:
+        Audit statistics dict for the report.
+    """
     with open(index_path, encoding="utf-8") as f:
         imgs = json.load(f)
     with open(text_path, encoding="utf-8") as f:
@@ -37,7 +66,6 @@ def audit_textocr(index_path: Path, text_path: Path) -> dict:
     total = len(imgs)
     with_anns = sum(1 for k in imgs if img_text.get(k, "").strip())
     missing = []
-    sample_checks = []
     for img_id, info in imgs.items():
         p = resolve_image_path(info["file_name"])
         if not p.exists():
@@ -46,6 +74,7 @@ def audit_textocr(index_path: Path, text_path: Path) -> dict:
     rng = random.Random(42)
     sample_ids = rng.sample(list(imgs.keys()), min(10, total))
     sample_ok = True
+    sample_checks = []
     for sid in sample_ids:
         info = imgs[sid]
         p = resolve_image_path(info["file_name"])
@@ -64,6 +93,14 @@ def audit_textocr(index_path: Path, text_path: Path) -> dict:
 
 
 def audit_docvqa(manifest_path: Path) -> dict:
+    """Audit DocVQA manifest rows vs exported PNG files.
+
+    Args:
+        manifest_path: e.g. ``docvqa_val_500.jsonl``
+
+    Returns:
+        Audit statistics dict.
+    """
     rows = []
     with open(manifest_path, encoding="utf-8") as f:
         for line in f:
@@ -75,11 +112,7 @@ def audit_docvqa(manifest_path: Path) -> dict:
     dupes = len(ids) - len(set(ids))
     missing = []
     for r in rows:
-        p = REPO_ROOT / r["image_path"].replace("/", "\\")
-        if not p.exists():
-            p = data_path(*Path(r["image_path"]).parts[1:]) if r["image_path"].startswith("data/") else Path(r["image_path"])
-        if not Path(r["image_path"]).is_absolute():
-            p = REPO_ROOT / r["image_path"]
+        p = REPO_ROOT / r["image_path"]
         if not p.exists():
             missing.append(r["image_id"])
 
@@ -96,6 +129,12 @@ def audit_docvqa(manifest_path: Path) -> dict:
 
 
 def write_report(report: dict, out_dir: Path) -> None:
+    """Write JSON and Markdown audit reports.
+
+    Args:
+        report: Full audit dict including ``passed`` bool.
+        out_dir: e.g. ``outputs/audit/``
+    """
     ensure_dir(out_dir)
     json_path = out_dir / "dataset_audit_report.json"
     md_path = out_dir / "dataset_audit_report.md"
@@ -112,8 +151,9 @@ def write_report(report: dict, out_dir: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    args = parser.parse_args()
+    """Run TextOCR + DocVQA audits and write report."""
+    parser = argparse.ArgumentParser(description="Audit datasets before manifest build.")
+    parser.parse_args()
 
     index_path = data_path("raw", "textocr", "textocr_imgs_index.json")
     text_path = data_path("raw", "textocr", "textocr_img_text.json")

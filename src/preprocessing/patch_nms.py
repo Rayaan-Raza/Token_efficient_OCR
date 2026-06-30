@@ -1,4 +1,9 @@
-"""Non-maximum suppression for overlapping patches."""
+"""Non-maximum suppression (NMS) for overlapping patch candidates.
+
+After scoring, many high-scoring patches may overlap heavily. NMS keeps the
+highest-scoring patch and suppresses others with IoU above a threshold, then
+repeats until ``top_k`` patches are selected or candidates are exhausted.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +11,15 @@ from src.preprocessing.patch_grid import Patch
 
 
 def iou(a: Patch, b: Patch) -> float:
+    """Intersection-over-union for two axis-aligned patches.
+
+    Args:
+        a: First patch.
+        b: Second patch.
+
+    Returns:
+        IoU in [0, 1].
+    """
     x0 = max(a.x, b.x)
     y0 = max(a.y, b.y)
     x1 = min(a.x + a.w, b.x + b.w)
@@ -21,15 +35,24 @@ def nms_patches(
     iou_threshold: float = 0.5,
     top_k: int | None = None,
 ) -> list[Patch]:
+    """Greedy NMS: keep highest-scoring non-overlapping patches.
+
+    Args:
+        patches: Candidate patches (same order as ``scores``).
+        scores: Importance score per patch.
+        iou_threshold: Suppress patches with IoU >= this value to a kept patch.
+        top_k: Stop after selecting this many patches (``None`` = no limit).
+
+    Returns:
+        Subset of ``patches`` in descending score order.
+    """
     if not patches:
         return []
     order = sorted(range(len(patches)), key=lambda i: scores[i], reverse=True)
     kept: list[Patch] = []
-    kept_scores: list[float] = []
     while order:
         i = order.pop(0)
         kept.append(patches[i])
-        kept_scores.append(scores[i])
         if top_k and len(kept) >= top_k:
             break
         order = [j for j in order if iou(patches[i], patches[j]) < iou_threshold]

@@ -1,11 +1,30 @@
-"""Simple logging setup."""
+"""Logging setup for CLI scripts and long-running experiments.
+
+Configures a named logger with console output and optional file logging.
+Calling ``setup_logging`` twice with the same name returns the existing logger
+without duplicating handlers.
+"""
 
 import logging
 import sys
 from pathlib import Path
 
 
-def setup_logging(name: str = "bops", log_file: Path | None = None, level: int = logging.INFO) -> logging.Logger:
+def setup_logging(
+    name: str = "bops",
+    log_file: Path | None = None,
+    level: int = logging.INFO,
+) -> logging.Logger:
+    """Create or retrieve a configured logger.
+
+    Args:
+        name: Logger name (default ``"bops"``).
+        log_file: If set, also append logs to this file.
+        level: Logging level (default ``INFO``).
+
+    Returns:
+        Configured :class:`logging.Logger`.
+    """
     logger = logging.getLogger(name)
     if logger.handlers:
         return logger

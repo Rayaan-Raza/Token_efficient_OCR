@@ -1,4 +1,9 @@
-"""JPEG/WebP compression to byte budget."""
+"""JPEG/WebP compression baselines under byte budgets.
+
+Binary-searches encoder quality so the output file size is at or below the
+target byte budget (±2% enforced in metadata). Used as strong baselines in
+OCR and VLM experiments alongside resize and BOPS.
+"""
 
 from __future__ import annotations
 
@@ -19,6 +24,21 @@ def compress_to_byte_budget(
     min_quality: int = 5,
     max_quality: int = 95,
 ) -> tuple[bytes, dict]:
+    """Encode an image to bytes, targeting a maximum file size.
+
+  Uses binary search over quality settings. If no quality fits under the budget,
+  returns the lowest-quality encoding.
+
+    Args:
+        image: Source PIL image.
+        target_bytes: Maximum allowed encoded size in bytes.
+        fmt: ``"JPEG"`` or ``"WEBP"``.
+        min_quality: Lower bound for quality search.
+        max_quality: Upper bound for quality search.
+
+    Returns:
+        Tuple of (encoded bytes, metadata including quality and budget fields).
+    """
     low, high = min_quality, max_quality
     best_data = b""
     best_q = min_quality
@@ -58,6 +78,17 @@ def compress_image_to_file(
     target_bytes: int,
     fmt: Format = "JPEG",
 ) -> dict:
+    """Compress an image and write it to disk.
+
+    Args:
+        image: Source PIL image.
+        out_path: Destination file path.
+        target_bytes: Byte budget for the encoded file.
+        fmt: ``"JPEG"`` or ``"WEBP"``.
+
+    Returns:
+        Metadata dict from :func:`compress_to_byte_budget` plus ``output_path``.
+    """
     data, meta = compress_to_byte_budget(image, target_bytes, fmt=fmt)
     with open(out_path, "wb") as f:
         f.write(data)
