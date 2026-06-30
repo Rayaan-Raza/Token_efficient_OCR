@@ -1,0 +1,90 @@
+Use the Hugging Face datasets library, not manual browser downloads. It will download the dataset into the Hugging Face cache, then you should export the images + manifest into your project folder.
+
+For your project, download DocVQA first. The Hugging Face version has 50,000 rows, three splits, and is around 9.59 GB total, but you can start with only the validation subset.
+
+1. Install required packages
+
+Run this in your project environment:
+
+pip install datasets pillow tqdm pandas
+
+Optional, if Hugging Face asks you to log in:
+
+pip install huggingface_hub
+huggingface-cli login
+
+Most likely, DocVQA will work without login.
+
+2. Download a small DocVQA subset first
+
+Create this file:
+
+scripts/download_docvqa_hf.py
+
+Paste this:
+
+from datasets import load_dataset
+from pathlib import Path
+from tqdm import tqdm
+import json
+
+OUT_DIR = Path("data/raw/docvqa_hf")
+IMG_DIR = OUT_DIR / "images"
+MANIFEST_DIR = Path("data/manifests")
+
+IMG_DIR.mkdir(parents=True, exist_ok=True)
+MANIFEST_DIR.mkdir(parents=True, exist_ok=True)
+
+# Start small. Do not download everything first.
+# Validation split has labels, so use it for experiments.
+dataset = load_dataset(
+    "HuggingFaceM4/DocumentVQA",
+    split="validation[:500]",
+    cache_dir="data/hf_cache"
+)
+
+manifest_path = MANIFEST_DIR / "docvqa_val_500.jsonl"
+
+with open(manifest_path, "w", encoding="utf-8") as f:
+    for i, row in enumerate(tqdm(dataset)):
+        image = row["image"]
+
+        question_id = row.get("questionId", i)
+        image_name = f"docvqa_val_{question_id}.png"
+        image_path = IMG_DIR / image_name
+
+        # Convert to RGB to avoid mode issues
+        image.convert("RGB").save(image_path)
+
+        record = {
+            "image_id": f"docvqa_val_{question_id}",
+            "dataset": "DocVQA",
+            "split": "validation",
+            "image_path": str(image_path).replace("\\", "/"),
+            "ocr_gt_text": "",
+            "question": row.get("question", ""),
+            "answer": row.get("answers", []),
+            "answer_type": row.get("question_types", []),
+            "metadata": {
+                "docId": row.get("docId", None),
+                "ucsf_document_id": row.get("ucsf_document_id", None),
+                "ucsf_document_page_no": row.get("ucsf_document_page_no", None)
+            }
+        }
+
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+print(f"Saved images to: {IMG_DIR}")
+print(f"Saved manifest to: {manifest_path}")
+print(f"Total samples: {len(dataset)}")
+
+Run:
+
+python scripts/download_docvqa_hf.py
+
+Expected output:
+
+data/raw/docvqa_hf/images/
+data/manifests/docvqa_val_500.jsonl
+
+This gives you 500 DocVQA validation samples with images, questions, and answers.
