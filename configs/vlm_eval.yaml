@@ -1,0 +1,4 @@
+manifest: data/manifests/docvqa_pilot.jsonl
+method: bops
+num_patches: 4
+limit: 100

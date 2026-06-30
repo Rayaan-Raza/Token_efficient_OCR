@@ -1,0 +1,3 @@
+byte_targets_kb: [500, 200, 100, 50]
+byte_tolerance: 0.02
+formats: [JPEG, WEBP]

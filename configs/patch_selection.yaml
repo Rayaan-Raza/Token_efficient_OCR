@@ -1,0 +1,5 @@
+patch_size: 256
+stride: 128
+overview_target_pixels: 50000
+num_patches: 4
+iou_threshold: 0.5

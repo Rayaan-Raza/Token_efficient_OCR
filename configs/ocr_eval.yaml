@@ -1,0 +1,4 @@
+manifest: data/manifests/textocr_pilot.jsonl
+methods: [original, resize, jpeg, webp, bops]
+budgets: [area_1.0, area_0.5, area_0.25, kb_500, kb_200]
+limit: 200

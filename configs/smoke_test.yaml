@@ -1,0 +1,5 @@
+# Smoke test — loads one image, resizes, saves output + metadata CSV
+input_image: data/raw/docvqa_hf/images/docvqa_val_49153.png
+output_dir: transformed_images
+metadata_csv: metrics/smoke_test_metadata.csv
+area_ratio: 0.5

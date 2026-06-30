@@ -1,0 +1,5 @@
+phase: paper
+ocr_manifest: data/manifests/textocr_pilot.jsonl
+vlm_manifest: data/manifests/docvqa_pilot.jsonl
+ocr_limit: 50
+vlm_limit: 20
