@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Data (large files stay local)
+data/raw/**/images/
+Data/raw/**/images/
+Data/train_val_images/
+data/train_val_images/
+Data/TextOCR_0.1_train.txt
+data/raw/textocr/TextOCR_0.1_train.json
+data/raw/textocr/textocr_img_to_anns.json
+data/hf_cache/
+
+# Experiment outputs
+outputs/transformed_images/
+outputs/patches/
+outputs/ocr_results/
+outputs/vlm_results/
+outputs/metrics/*.csv
+outputs/plots/
+
+# Model caches
+.cache/
+*.pt
+*.bin
+*.safetensors
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
