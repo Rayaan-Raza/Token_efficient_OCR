@@ -32,6 +32,8 @@ outputs/transformed_images/
 outputs/patches/
 outputs/ocr_results/
 outputs/vlm_results/
+outputs/cache/
+outputs/checkpoints/
 outputs/metrics/*.csv
 outputs/plots/
 

@@ -1,8 +1,9 @@
 """JPEG/WebP compression baselines under byte budgets.
 
 Binary-searches encoder quality so the output file size is at or below the
-target byte budget (±2% enforced in metadata). Used as strong baselines in
-OCR and VLM experiments alongside resize and BOPS.
+target byte budget. Validity requires ``actual_bytes <= target_bytes``;
+``byte_utilization`` and ``underutilized_budget`` are recorded in metadata.
+Used as strong baselines in OCR and VLM experiments alongside resize and BOPS.
 """
 
 from __future__ import annotations

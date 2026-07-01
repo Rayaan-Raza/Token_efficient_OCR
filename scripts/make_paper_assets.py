@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
@@ -56,12 +57,15 @@ def main() -> None:
         valid = filter_paper_dataframe(ocr_df)
         print(f"OCR: {len(valid)} / {len(ocr_df)} rows eligible for paper tables")
         if len(valid):
-            summary = valid.groupby(["method", "budget"]).agg(
-                cer_mean=("cer", "mean"),
-                wer_mean=("wer", "mean"),
-                word_recall_mean=("word_recall", "mean"),
-                n=("cer", "count"),
-            ).reset_index()
+            agg: dict[str, tuple[str, Any]] = {
+                "cer_mean": ("cer", "mean"),
+                "wer_mean": ("wer", "mean"),
+                "word_recall_mean": ("word_recall", "mean"),
+                "n": ("cer", "count"),
+            }
+            if "byte_utilization" in valid.columns:
+                agg["byte_utilization_mean"] = ("byte_utilization", "mean")
+            summary = valid.groupby(["method", "budget"]).agg(**agg).reset_index()
             summary.to_csv(paper_tables / "table_ocr_budget.csv", index=False)
             print(f"Wrote {paper_tables / 'table_ocr_budget.csv'}")
 

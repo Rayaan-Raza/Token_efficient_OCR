@@ -116,19 +116,28 @@ def run_bops(
 
     if mode == "random":
         patches = select_random_patches(candidates, num_patches, seed=seed)
+        patch_scores: list[float] = []
     elif mode == "uniform":
         patches = select_uniform_patches(candidates, num_patches)
+        patch_scores = []
     elif mode == "overview_only":
         patches = []
+        patch_scores = []
     else:
-        patches, _ = select_ocr_guided_patches(image, candidates, num_patches)
+        patches, patch_scores = select_ocr_guided_patches(image, candidates, num_patches)
 
     patch_images = [crop_patch(image, p) for p in patches]
+    overview_pixels = overview.width * overview.height
+    patch_pixels = sum(p.w * p.h for p in patches)
     meta: dict[str, Any] = {
         "mode": mode,
         "num_patches_target": num_patches,
         "num_patches_actual": len(patches),
         "patches": [p.as_dict() for p in patches],
+        "patch_scores": patch_scores,
+        "mean_patch_score": float(sum(patch_scores) / len(patch_scores)) if patch_scores else 0.0,
+        "overview_pixels": overview_pixels,
+        "total_bops_pixels": overview_pixels + patch_pixels,
         **overview_meta,
     }
     budget = check_patch_budget(len(patches), num_patches)

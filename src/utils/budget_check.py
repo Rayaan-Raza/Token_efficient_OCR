@@ -7,7 +7,7 @@ not. Rows marked invalid must be excluded from aggregate metrics and paper table
 
 Tolerances (from the implementation plan):
     - Pixel (area): ±3% (``PIXEL_TOLERANCE``)
-    - Byte (JPEG/WebP): ±2% (``BYTE_TOLERANCE``)
+    - Byte (JPEG/WebP): valid if ``actual_bytes <= target_bytes``; report ``byte_utilization``
     - Patch count: exact match (zero tolerance)
 
 Example::
@@ -25,7 +25,7 @@ from dataclasses import dataclass, asdict
 from typing import Any
 
 PIXEL_TOLERANCE = 0.03
-BYTE_TOLERANCE = 0.02
+BYTE_UNDERUTILIZED_THRESHOLD = 0.70
 
 
 @dataclass
@@ -38,6 +38,8 @@ class BudgetResult:
         budget_actual: Measured value after preprocessing.
         invalid_budget: True if the result must be excluded from aggregates.
         tolerance: Relative tolerance used (0.0 for exact patch counts).
+        byte_utilization: For byte budgets, ``actual / target`` (optional).
+        underutilized_budget: For byte budgets, True if utilization < 0.70.
     """
 
     budget_type: str
@@ -45,6 +47,8 @@ class BudgetResult:
     budget_actual: float
     invalid_budget: bool
     tolerance: float
+    byte_utilization: float | None = None
+    underutilized_budget: bool | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to a flat dict suitable for CSV/JSONL metadata rows."""
@@ -80,6 +84,11 @@ def check_pixel_budget(actual_pixels: int, target_pixels: int) -> BudgetResult:
 def check_byte_budget(actual_bytes: int, target_bytes: int) -> BudgetResult:
     """Validate encoded file size against a byte budget.
 
+    Valid when ``actual_bytes <= target_bytes``. Rows are invalid only when
+    the encoded file exceeds the target. ``byte_utilization`` and
+    ``underutilized_budget`` are reported for transparency (underutilized
+    rows are not auto-excluded).
+
     Args:
         actual_bytes: Size of the compressed file on disk.
         target_bytes: Target size in bytes (e.g. 200 * 1024 for 200 KB).
@@ -87,12 +96,15 @@ def check_byte_budget(actual_bytes: int, target_bytes: int) -> BudgetResult:
     Returns:
         :class:`BudgetResult` with ``budget_type="byte"``.
     """
+    utilization = (actual_bytes / target_bytes) if target_bytes > 0 else 0.0
     return BudgetResult(
         budget_type="byte",
         budget_target=float(target_bytes),
         budget_actual=float(actual_bytes),
-        invalid_budget=not _within_tolerance(actual_bytes, target_bytes, BYTE_TOLERANCE),
-        tolerance=BYTE_TOLERANCE,
+        invalid_budget=actual_bytes > target_bytes,
+        tolerance=0.0,
+        byte_utilization=utilization,
+        underutilized_budget=utilization < BYTE_UNDERUTILIZED_THRESHOLD,
     )
 
 

@@ -116,7 +116,7 @@ Implemented in `src/utils/budget_check.py`.
 | Budget type | Used by | Target | Tolerance | `invalid_budget` when |
 |-------------|---------|--------|-----------|------------------------|
 | **pixel** | `resize`, `original` (implicit) | `area_ratio × original_pixels` | ±3% | `\|actual − target\| / target > 0.03` |
-| **byte** | `jpeg`, `webp` | e.g. `kb_200` → 204,800 bytes | ±2% | same relative rule |
+| **byte** | `jpeg`, `webp` | e.g. `kb_200` → 204,800 bytes | at-or-under target | `actual_bytes > target_bytes`; report `byte_utilization` and `underutilized_budget` if utilization < 0.70 (not auto-excluded) |
 | **patch** | BOPS | exact K patches | **0%** (exact) | `actual_patches ≠ target_patches` |
 
 **Budget token syntax** (CLI `--budgets`):

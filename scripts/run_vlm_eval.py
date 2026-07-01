@@ -16,7 +16,6 @@ Example::
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 import time
 from pathlib import Path
@@ -36,10 +35,20 @@ from src.utils.experiment_io import (
 )
 from src.utils.image_io import load_image
 from src.utils.paths import repo_path
+from src.vlm.patch_diagnostics import compute_patch_diagnostics
 from src.vlm.qa_metrics import anls, exact_match
 from src.vlm.run_vlm import run_vlm_overview_patches, run_vlm_single
 
 VLM_MODEL_NAME = "Qwen/Qwen2.5-VL-3B-Instruct"
+
+_DIAG_NA = {
+    "answer_in_selected_patch_ocr": None,
+    "answer_in_full_image_ocr": None,
+    "num_ocr_boxes_selected": None,
+    "selected_text_box_coverage": None,
+    "mean_patch_score": None,
+    "selected_patch_coords": None,
+}
 
 
 def main() -> None:
@@ -73,15 +82,18 @@ def main() -> None:
     for i, record in enumerate(iter_manifest(args.manifest)):
         if i >= args.limit:
             break
+        image_id = record["image_id"]
         image = load_image(repo_path(record["image_path"]))
         question = record.get("question", "")
         answers = record.get("answer", [])
         if isinstance(answers, str):
             answers = [answers]
 
-        print(f"  [{i+1}/{args.limit}] {record['image_id']} | {args.method} ...", flush=True)
+        print(f"  [{i+1}/{args.limit}] {image_id} | {args.method} ...", flush=True)
         t0 = time.perf_counter()
         invalid_budget = False
+        diag = dict(_DIAG_NA)
+        bops_result = None
 
         if args.dry_run:
             raw_pred, parsed = "dry-run", "dry-run"
@@ -90,28 +102,40 @@ def main() -> None:
             invalid_budget = bool(meta.get("invalid_budget", False))
             raw_pred, parsed = run_vlm_single(resized, question)
         elif args.method == "overview_only":
-            result = run_bops(image, 0, mode="overview_only")
-            invalid_budget = bool(result["meta"].get("invalid_budget", False))
-            raw_pred, parsed = run_vlm_single(result["overview"], question)
+            bops_result = run_bops(image, 0, mode="overview_only")
+            invalid_budget = bool(bops_result["meta"].get("invalid_budget", False))
+            raw_pred, parsed = run_vlm_single(bops_result["overview"], question)
         else:
             mode_bops = "ocr_guided" if args.method == "bops" else args.method
-            result = run_bops(image, args.num_patches, mode=mode_bops)
-            invalid_budget = bool(result["meta"].get("invalid_budget", False))
+            bops_result = run_bops(image, args.num_patches, mode=mode_bops)
+            invalid_budget = bool(bops_result["meta"].get("invalid_budget", False))
             raw_pred, parsed = run_vlm_overview_patches(
-                result["overview"], result["patches"], question
+                bops_result["overview"], bops_result["patches"], question
+            )
+
+        if bops_result is not None and not args.dry_run:
+            diag = compute_patch_diagnostics(
+                image, image_id, args.method, args.num_patches, bops_result, answers
             )
 
         runtime = round(time.perf_counter() - t0, 3)
         em = exact_match(parsed, answers)
         anls_score = anls(parsed, answers)
         preview = (parsed[:60] + "…") if len(parsed) > 60 else parsed
-        print(f"       -> parsed={preview!r} | EM={em} ANLS={anls_score:.3f} | {runtime}s", flush=True)
+        if bops_result is not None:
+            print(
+                f"       -> parsed={preview!r} | EM={em} ANLS={anls_score:.3f} | "
+                f"ans_in_patch={diag.get('answer_in_selected_patch_ocr')} | {runtime}s",
+                flush=True,
+            )
+        else:
+            print(f"       -> parsed={preview!r} | EM={em} ANLS={anls_score:.3f} | {runtime}s", flush=True)
 
         rows.append({
             "run_id": run_id,
             "timestamp": iso_timestamp(),
             "experiment_stage": args.experiment_stage,
-            "image_id": record["image_id"],
+            "image_id": image_id,
             "method": args.method,
             "num_patches": args.num_patches,
             "question": question,
@@ -125,6 +149,7 @@ def main() -> None:
             "invalid_budget": invalid_budget,
             "not_applicable": False,
             "dry_run": args.dry_run,
+            **diag,
         })
 
     write_or_append_csv(rows, csv_path, append=args.append, overwrite=args.overwrite)

@@ -64,6 +64,32 @@ def default_ocr_metrics_path(manifest_path: str | Path, experiment_stage: str) -
     return outputs_path("metrics", f"ocr_metrics_{stem}_{experiment_stage}.csv")
 
 
+def default_ocr_checkpoint_path(manifest_path: str | Path, experiment_stage: str) -> Path:
+    """Checkpoint JSON path for resumable OCR eval runs."""
+    stem = manifest_stem(manifest_path)
+    return outputs_path("checkpoints", f"ocr_eval_{stem}_{experiment_stage}.json")
+
+
+def load_ocr_checkpoint(path: str | Path) -> dict[str, Any] | None:
+    """Load OCR eval checkpoint if present."""
+    p = Path(path)
+    if not p.exists():
+        return None
+    with open(p, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_ocr_checkpoint(path: str | Path, payload: dict[str, Any]) -> Path:
+    """Persist OCR eval checkpoint atomically."""
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_suffix(".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+    tmp.replace(out)
+    return out
+
+
 def write_or_append_csv(
     rows: list[dict[str, Any]],
     path: str | Path,
