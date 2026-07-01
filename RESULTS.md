@@ -3,10 +3,11 @@
 Living log of dataset audits, preprocessing checks, OCR metrics, VLM QA scores, and method comparisons.
 
 **Last updated:** 2026-06-30  
-**Pipeline status:** Dry-run complete (pilot + ablation + paper phases) — real OCR/VLM not yet run  
+**Pipeline status:** Real Qwen VLM verified on RTX 3050 (4 GB) — OCR still dry-run  
+**GPU:** NVIDIA GeForce RTX 3050 Laptop GPU · PyTorch `2.12.1+cu126`  
 **Unit tests:** 14/14 passing (`python -m pytest tests/ -q`)
 
-> **Important:** All runs below used `--dry-run`. OCR predictions are empty (CER/WER = 1.0). VLM predictions are the placeholder string `dry-run` (EM = 0, ANLS = 0). **Qwen has not been executed on this machine** — no CUDA GPU detected. See [§10 Qwen local inference](#10-qwen-local-inference) for how to run it.
+> **OCR** still uses `--dry-run` until EasyOCR is installed. **VLM** runs locally via Qwen2.5-VL-3B (4-bit). Close other GPU apps (games, etc.) before long evals — first sample took ~51 min with Rainbow Six sharing the GPU; second took ~88 s.
 
 ---
 
@@ -159,34 +160,42 @@ python scripts/run_ocr_eval.py \
 
 ---
 
-## 5. VLM results (DocVQA) — dry-run
+## 5. VLM results (DocVQA)
 
 **Raw CSV:** `outputs/metrics/vlm_metrics.csv`  
 **Paper table:** `paper/tables/table_vlm_patches.csv`
 
-### 5.1 Paper-phase (last method written: bops)
+### 5.1 Real Qwen inference (2026-06-30, RTX 3050)
+
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+pip install accelerate bitsandbytes transformers
+python scripts/run_vlm_eval.py \
+  --manifest data/manifests/docvqa_debug.jsonl \
+  --method resize --num-patches 4 --limit 2
+```
+
+| image_id | question (short) | prediction | GT | EM* | ANLS* | runtime (s) |
+|----------|------------------|------------|-----|-----|-------|-------------|
+| docvqa_val_49153 | actual value per 1000, 1975? | 0.28 | 0.28 | 1.0 | 1.0 | 3055 |
+| docvqa_val_24580 | name of university? | University of California | university of california | 1.0 | 0.71 | 88 |
+
+\*Metrics after `parse_answer` strips the `assistant` prefix. Re-run eval to refresh CSV with cleaned predictions.
+
+**4 GB VRAM tips:** Close GPU-heavy apps before eval; prefer `--method resize` or `--num-patches 2` for BOPS.
+
+### 5.2 Prior dry-run aggregate (paper phase)
 
 | method | num_patches | EM | ANLS | n |
 |--------|-------------|-----|------|---|
 | bops | 4 | 0.000 | 0.000 | 10 |
 
-Paper phase also ran `resize`, `overview_only`, `random`, `uniform` (10 samples each), but each invocation overwrites `vlm_metrics.csv` — only the final `bops` rows remain on disk.
-
-### 5.2 Patch-count ablation (from ablation phase)
-
-Ablation ran BOPS at K ∈ {0, 2, 4, 8, 12} patches (10 samples each). Results were overwritten by the paper phase; re-run ablation alone to preserve all K values:
+### 5.3 Larger eval (recommended next)
 
 ```bash
-python scripts/run_full_experiment.py --phase ablation
-```
-
-### 5.3 Re-run with real VLM (no `--dry-run`)
-
-```bash
-pip install transformers bitsandbytes accelerate
 python scripts/run_vlm_eval.py \
   --manifest data/manifests/docvqa_pilot.jsonl \
-  --method bops --num-patches 4 --limit 100
+  --method resize --limit 10
 ```
 
 ---
@@ -244,55 +253,41 @@ Update tables from `outputs/metrics/*.csv` and `paper/tables/*.csv`.
 
 ## 10. Qwen local inference
 
-**Status on this machine:** Not run. `torch.cuda.is_available()` → `False` (CPU only). The pipeline used `--dry-run` for all VLM evals.
+**Status:** Verified on RTX 3050 Laptop GPU (4 GB VRAM).
 
-### How Qwen is wired in this repo
+### One-time GPU setup (this machine)
 
-Implementation: `src/vlm/run_vlm.py`
+PyTorch was CPU-only (`2.10.0+cpu`). Reinstalled with CUDA:
+
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+pip install accelerate bitsandbytes transformers
+```
+
+Verify:
+
+```bash
+python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+# True NVIDIA GeForce RTX 3050 Laptop GPU
+```
+
+### How inference works (`src/vlm/run_vlm.py`)
 
 | Setting | Value |
 |---------|-------|
 | Model | `Qwen/Qwen2.5-VL-3B-Instruct` |
-| Quantization | 4-bit (`load_in_4bit=True`) via `bitsandbytes` |
-| Device | `device_map="auto"` (CUDA GPU) |
-| Dtype | `torch.float16` |
-| Max tokens | 64 per answer |
+| Quantization | 4-bit via `BitsAndBytesConfig` |
+| Device | `device_map="auto"` (CUDA) |
+| Image cap | Longest side ≤ 768 px (4 GB VRAM) |
 
-**Load once, cache globally:**
-
-```python
-from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
-
-model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-    "Qwen/Qwen2.5-VL-3B-Instruct",
-    device_map="auto",
-    torch_dtype=torch.float16,
-    load_in_4bit=True,
-)
-processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-3B-Instruct")
-```
-
-**Inference flow:**
-
-1. BOPS preprocessing produces an overview image + K patch crops (`src/preprocessing/bops.py`).
-2. `run_vlm_single(image, question)` — one image (resize baseline).
-3. `run_vlm_overview_patches(overview, patches, question)` — overview + patches (BOPS).
-4. Images + prompt go through Qwen's chat template → `model.generate()` → `parse_answer()`.
-
-**CLI (real inference — requires GPU):**
+**CLI (no `--dry-run`):**
 
 ```bash
-# Install deps
-pip install torch transformers bitsandbytes accelerate
-
-# Single method, no dry-run
 python scripts/run_vlm_eval.py \
-  --manifest data/manifests/docvqa_pilot.jsonl \
-  --method bops \
-  --num-patches 4 \
-  --limit 10
+  --manifest data/manifests/docvqa_debug.jsonl \
+  --method resize --limit 2
 ```
 
-Omit `--dry-run`. First run downloads ~3B model weights from Hugging Face (~6 GB). Expect ~8 GB VRAM with 4-bit quantization.
+First run downloads ~7 GB of model weights from Hugging Face, then caches locally.
 
-**What we actually ran:** `run_vlm_eval.py --dry-run`, which skips `load_vlm()` entirely and writes `prediction = "dry-run"` without loading Qwen.
+**What `--dry-run` does:** Skips `load_vlm()` and writes `prediction = "dry-run"`.

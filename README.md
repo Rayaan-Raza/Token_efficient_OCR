@@ -56,13 +56,14 @@ pip install easyocr          # works on Python 3.14
 pip install paddleocr paddlepaddle   # if supported on your platform
 ```
 
-**VLM** (GPU recommended):
+**VLM** (GPU required — RTX 3050 4 GB works with 4-bit Qwen):
 
 ```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
 pip install transformers bitsandbytes accelerate
 ```
 
-Model: `Qwen/Qwen2.5-VL-3B-Instruct` (4-bit, local inference). See [RESULTS.md §10](RESULTS.md#10-qwen-local-inference) for setup — requires a CUDA GPU; this repo uses `--dry-run` until the model is loaded.
+Model: `Qwen/Qwen2.5-VL-3B-Instruct` (4-bit). See [RESULTS.md §10](RESULTS.md#10-qwen-local-inference). Close other GPU apps before eval.
 
 ---
 

@@ -6,6 +6,8 @@ VRAM) and supports:
     - Overview + multi-patch QA (BOPS layout)
 
 Requires GPU, ``transformers``, and ``bitsandbytes`` for 4-bit loading.
+On 4 GB GPUs (e.g. RTX 3050), images are downscaled before inference and patch
+counts should stay low (≤2) to avoid OOM.
 """
 
 from __future__ import annotations
@@ -21,13 +23,26 @@ from src.vlm.prompt_templates import format_overview_patches, format_single
 _model = None
 _processor = None
 
+# Cap longest image side before VLM encode (saves VRAM on 4 GB cards)
+_VLM_MAX_SIDE = 768
+
+
+def _resize_for_vlm(image: Image.Image, max_side: int = _VLM_MAX_SIDE) -> Image.Image:
+    """Downscale an image so its longest side is at most ``max_side`` pixels."""
+    w, h = image.size
+    longest = max(w, h)
+    if longest <= max_side:
+        return image
+    scale = max_side / longest
+    return image.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
+
 
 def load_vlm(model_name: str = "Qwen/Qwen2.5-VL-3B-Instruct", load_in_4bit: bool = True):
     """Load or return cached Qwen2.5-VL model and processor.
 
     Args:
         model_name: Hugging Face model id.
-        load_in_4bit: Use 4-bit quantization (recommended for 3B on ~8GB VRAM).
+        load_in_4bit: Use 4-bit quantization (recommended for 3B on 4–8 GB VRAM).
 
     Returns:
         Tuple of (model, processor).
@@ -35,10 +50,19 @@ def load_vlm(model_name: str = "Qwen/Qwen2.5-VL-3B-Instruct", load_in_4bit: bool
     global _model, _processor
     if _model is not None:
         return _model, _processor
-    from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
-    kwargs: dict[str, Any] = {"device_map": "auto", "torch_dtype": torch.float16}
+    from transformers import AutoProcessor, BitsAndBytesConfig, Qwen2_5_VLForConditionalGeneration
+
+    kwargs: dict[str, Any] = {
+        "device_map": "auto",
+        "dtype": torch.float16,
+        "low_cpu_mem_usage": True,
+    }
     if load_in_4bit:
-        kwargs["load_in_4bit"] = True
+        kwargs["quantization_config"] = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.float16,
+            bnb_4bit_use_double_quant=True,
+        )
     _model = Qwen2_5_VLForConditionalGeneration.from_pretrained(model_name, **kwargs)
     _processor = AutoProcessor.from_pretrained(model_name)
     return _model, _processor
@@ -56,11 +80,12 @@ def _generate(images: list[Image.Image], prompt: str, max_new_tokens: int = 64) 
         Parsed answer string.
     """
     model, processor = load_vlm()
+    images = [_resize_for_vlm(im) for im in images]
     messages = [{"role": "user", "content": [{"type": "image", "image": im} for im in images] + [{"type": "text", "text": prompt}]}]
     text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     inputs = processor(text=[text], images=images, return_tensors="pt", padding=True)
-    inputs = {k: v.to(model.device) for k, v in inputs.items()}
-    with torch.no_grad():
+    inputs = {k: v.to(model.device) if hasattr(v, "to") else v for k, v in inputs.items()}
+    with torch.inference_mode():
         out = model.generate(**inputs, max_new_tokens=max_new_tokens)
     decoded = processor.batch_decode(out, skip_special_tokens=True)[0]
     return parse_answer(decoded)
