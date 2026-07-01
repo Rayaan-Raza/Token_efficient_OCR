@@ -13,8 +13,15 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import sys
+
 _ocr_backend = None
 _backend_name = None
+
+
+def _paddle_available() -> bool:
+    """Return False on Python versions where PaddlePaddle is typically unavailable."""
+    return sys.version_info < (3, 14)
 
 
 def _init_paddle():
@@ -23,33 +30,52 @@ def _init_paddle():
     return PaddleOCR(use_angle_cls=True, lang="en", show_log=False), "paddle"
 
 
-def _init_easyocr():
-    """Initialize EasyOCR English reader (CPU)."""
+def _init_easyocr(use_gpu: bool):
+    """Initialize EasyOCR English reader."""
     import easyocr
-    return easyocr.Reader(["en"], gpu=False), "easyocr"
+
+    print(f"[OCR] Initializing EasyOCR (gpu={use_gpu}) ...")
+    return easyocr.Reader(["en"], gpu=use_gpu, verbose=False), "easyocr"
 
 
 def get_ocr():
     """Return the shared OCR backend, initializing on first call.
 
-    Tries PaddleOCR first, then EasyOCR.
+    Tries PaddleOCR (if Python < 3.14), then EasyOCR with GPU, then EasyOCR CPU.
 
     Returns:
         Tuple of (backend instance, backend name ``"paddle"`` or ``"easyocr"``).
 
     Raises:
-        RuntimeError: If neither backend can be imported/initialized.
+        RuntimeError: If no backend can be initialized.
     """
     global _ocr_backend, _backend_name
     if _ocr_backend is not None:
         return _ocr_backend, _backend_name
-    for init_fn, name in ((_init_paddle, "paddle"), (_init_easyocr, "easyocr")):
+
+    errors: list[str] = []
+    init_fns: list[tuple] = []
+    if _paddle_available():
+        init_fns.append((_init_paddle, "paddle"))
+    else:
+        print("[OCR] Skipping PaddleOCR on Python 3.14+")
+
+    import torch
+    init_fns.append((lambda: _init_easyocr(torch.cuda.is_available()), "easyocr-gpu"))
+    init_fns.append((lambda: _init_easyocr(False), "easyocr-cpu"))
+
+    for init_fn, label in init_fns:
         try:
             _ocr_backend, _backend_name = init_fn()
+            print(f"[OCR] Using backend: {_backend_name}")
             return _ocr_backend, _backend_name
-        except Exception:
-            continue
-    raise RuntimeError("No OCR backend available. Install paddleocr or easyocr.")
+        except Exception as e:
+            errors.append(f"{label}: {e}")
+            print(f"[OCR] {label} failed: {e}")
+
+    raise RuntimeError(
+        "No OCR backend available. Install easyocr or paddleocr.\n" + "\n".join(errors)
+    )
 
 
 def run_ocr_on_image(image_path: str | Path) -> str:

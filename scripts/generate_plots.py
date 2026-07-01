@@ -25,12 +25,17 @@ from src.visualization.plot_budget_curves import plot_cer_vs_budget
 def main() -> None:
     """CLI: plot CER vs budget if metrics CSV exists."""
     parser = argparse.ArgumentParser(description="Generate experiment plots.")
-    parser.add_argument("--ocr-csv", default=str(outputs_path("metrics", "ocr_metrics.csv")))
+    parser.add_argument("--ocr-csv", default=None)
     args = parser.parse_args()
-    csv_path = Path(args.ocr_csv)
-    if csv_path.exists():
+    if args.ocr_csv:
+        csv_path = Path(args.ocr_csv)
+    else:
+        metrics_dir = outputs_path("metrics")
+        candidates = sorted(metrics_dir.glob("ocr_metrics*.csv"), key=lambda p: p.stat().st_mtime, reverse=True)
+        csv_path = candidates[0] if candidates else metrics_dir / "ocr_metrics.csv"
+    if csv_path.exists() and csv_path.stat().st_size > 0:
         plot_cer_vs_budget(csv_path, outputs_path("plots", "cer_vs_budget.png"))
-        print("Wrote plot to outputs/plots/cer_vs_budget.png")
+        print(f"Wrote plot from {csv_path.name} to outputs/plots/cer_vs_budget.png")
     else:
         print(f"No OCR metrics at {csv_path}")
 

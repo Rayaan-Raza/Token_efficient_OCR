@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""Categorize VLM QA failures for failure analysis (Phase 15).
+"""Categorize VLM QA failures from merged metrics CSV (Phase 15).
 
-Reads ``outputs/metrics/vlm_metrics.csv``, extracts non-exact-match rows,
-assigns coarse failure types, and writes:
-    - ``outputs/failure_cases/vlm_failures.csv``
-    - ``outputs/failure_cases/failure_summary.csv``
+Reads ``outputs/metrics/vlm_metrics_merged.csv`` (or legacy single file),
+extracts non-exact-match rows, and writes failure case tables.
 
 Run::
 
@@ -24,21 +22,33 @@ import pandas as pd
 from src.utils.paths import outputs_path
 
 
+def _load_vlm_df() -> pd.DataFrame | None:
+    merged = outputs_path("metrics", "vlm_metrics_merged.csv")
+    if merged.exists() and merged.stat().st_size > 0:
+        return pd.read_csv(merged)
+    legacy = outputs_path("metrics", "vlm_metrics.csv")
+    return pd.read_csv(legacy) if legacy.exists() else None
+
+
 def main() -> None:
-    """Extract and summarize VLM failures from the latest metrics file."""
-    vlm_csv = outputs_path("metrics", "vlm_metrics.csv")
-    if not vlm_csv.exists():
+    """Extract and summarize VLM failures."""
+    df = _load_vlm_df()
+    if df is None or len(df) == 0:
         print("No VLM metrics found")
         return
-    df = pd.read_csv(vlm_csv)
+
+    pred_col = "parsed_prediction" if "parsed_prediction" in df.columns else "prediction"
+    if "dry_run" in df.columns:
+        df = df[df["dry_run"].fillna(False).astype(bool) == False]
+
     failures = df[df["exact_match"] < 1.0].copy()
     failures["failure_type"] = "other"
-    failures.loc[failures["prediction"].str.len() < 2, "failure_type"] = "empty_or_short"
+    failures.loc[failures[pred_col].astype(str).str.len() < 2, "failure_type"] = "empty_or_short"
     out = outputs_path("failure_cases", "vlm_failures.csv")
     failures.to_csv(out, index=False)
     summary = failures.groupby("failure_type").size().reset_index(name="count")
     summary.to_csv(outputs_path("failure_cases", "failure_summary.csv"), index=False)
-    print(f"Wrote {out}")
+    print(f"Wrote {out} ({len(failures)} failures)")
 
 
 if __name__ == "__main__":

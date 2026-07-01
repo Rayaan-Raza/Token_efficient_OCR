@@ -26,6 +26,10 @@ def plot_cer_vs_budget(csv_path: Path, out_path: Path, budget_col: str = "budget
         print(f"Skipping plot: no cer column in {csv_path}")
         return
     valid = df.copy()
+    if "not_applicable" in valid.columns:
+        valid = valid[valid["not_applicable"].fillna(False).astype(bool) == False]
+    if "dry_run" in valid.columns:
+        valid = valid[valid["dry_run"].fillna(False).astype(bool) == False]
     if "invalid_budget" in valid.columns:
         valid = valid[valid["invalid_budget"].fillna(False).astype(bool) == False]
     valid = valid.dropna(subset=["cer"])

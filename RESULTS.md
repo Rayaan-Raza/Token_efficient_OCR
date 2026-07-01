@@ -2,12 +2,94 @@
 
 Living log of dataset audits, preprocessing checks, OCR metrics, VLM QA scores, and method comparisons.
 
-**Last updated:** 2026-06-30  
-**Pipeline status:** Real Qwen VLM verified on RTX 3050 (4 GB) — OCR still dry-run  
+**Last updated:** 2026-07-01  
+**Pipeline status:** Real OCR (EasyOCR GPU) + real Qwen VLM verified — **sanity n=10 only, not final paper results**  
 **GPU:** NVIDIA GeForce RTX 3050 Laptop GPU · PyTorch `2.12.1+cu126`  
-**Unit tests:** 14/14 passing (`python -m pytest tests/ -q`)
+**Unit tests:** 25/25 passing (`python -m pytest tests/ -q`)
 
-> **OCR** still uses `--dry-run` until EasyOCR is installed. **VLM** runs locally via Qwen2.5-VL-3B (4-bit). Close other GPU apps (games, etc.) before long evals — first sample took ~51 min with Rainbow Six sharing the GPU; second took ~88 s.
+> **Sanity checkpoint passed:** The experiment pipeline now produces valid research data (no dry-run rows in sanity CSVs). Paper tables remain empty until `experiment_stage=pilot` or `paper` runs. Do **not** claim BOPS improves OCR/VLM from these n=10 numbers alone.
+
+---
+
+## Real sanity run (2026-07-01) — n=10, not final
+
+Commands executed:
+
+```bash
+python scripts/run_ocr_eval.py \
+  --manifest data/manifests/textocr_debug.jsonl \
+  --methods original resize jpeg webp bops \
+  --budgets area_1.0 area_0.5 area_0.25 area_0.125 kb_500 kb_200 kb_100 kb_50 patches_2 patches_4 patches_8 \
+  --limit 10 --experiment-stage sanity --overwrite
+
+for method in resize overview_only random uniform bops; do
+  python scripts/run_vlm_eval.py \
+    --manifest data/manifests/docvqa_debug.jsonl \
+    --method $method --num-patches 2 --limit 10 \
+    --experiment-stage sanity --overwrite
+done
+python scripts/merge_vlm_metrics.py
+python scripts/make_paper_assets.py
+python scripts/generate_plots.py
+python scripts/analyze_failures.py
+```
+
+| Track | Output | Rows | dry_run | Notes |
+|-------|--------|------|---------|-------|
+| OCR | `outputs/metrics/ocr_metrics_textocr_debug_sanity.csv` | 550 (160 applicable) | 0 | EasyOCR GPU; 390 `not_applicable` skipped |
+| VLM | `outputs/metrics/vlm_metrics_merged.csv` | 50 (5 methods × 10) | 0 | Per-method CSVs under `outputs/metrics/vlm_metrics_docvqa_debug_*` |
+| Paper tables | `paper/tables/*.csv` | 0 eligible | — | Filter requires `experiment_stage` ∈ {pilot, paper} |
+| Plot | `outputs/plots/cer_vs_budget.png` | — | — | From sanity OCR CSV (includes sanity rows) |
+
+### OCR sanity — word_recall (primary metric)
+
+Mean word recall over 10 TextOCR samples (`not_applicable=false`, `dry_run=false`):
+
+| method | budget | word_recall |
+|--------|--------|-------------|
+| original | area_1.0 | 0.317 |
+| resize | area_1.0 | 0.317 |
+| resize | area_0.5 | 0.269 |
+| resize | area_0.25 | 0.177 |
+| resize | area_0.125 | 0.102 |
+| bops | patches_2 | 0.207 |
+| bops | patches_4 | 0.235 |
+| bops | patches_8 | 0.313 |
+
+**Sanity pass criteria (primary):**
+
+| Check | Result |
+|-------|--------|
+| `original` > `resize area_0.25` | ✅ 0.317 > 0.177 |
+| `resize area_0.5` > `area_0.25` | ✅ 0.269 > 0.177 |
+| OCR non-empty rate | ✅ 98.9% |
+| BOPS `invalid_budget` | ✅ false for all patch rows |
+| BOPS patches_2 → patches_8 trend | ✅ 0.207 → 0.313 (saturation OK) |
+
+JPEG/WebP byte budgets hit `invalid_budget=true` on this small set (compression missed ±2% targets) but word_recall means are populated (kb_500 ≈ 0.328, kb_200 ≈ 0.325).
+
+### VLM sanity — DocVQA n=10, K=2
+
+Mean scores (`dry_run=false`, `experiment_stage=sanity`):
+
+| method | EM | ANLS | mean runtime (s) |
+|--------|-----|------|------------------|
+| resize | 0.60 | 0.833 | 5.2 |
+| overview_only | 0.20 | 0.329 | 3.9 |
+| random | 0.20 | 0.200 | 4.8 |
+| uniform | 0.20 | 0.374 | 8.2 |
+| bops | 0.20 | 0.200 | 17.7 |
+
+**Sanity pass criteria:**
+
+| Check | Result |
+|-------|--------|
+| No dry_run rows | ✅ |
+| `raw_prediction` / `parsed_prediction` populated | ✅ |
+| `resize` not near-zero everywhere | ✅ EM=0.60 |
+| `bops` not obviously worse than `random` | ✅ same EM/ANLS on n=10 |
+| `overview_only` weaker on detail questions | ✅ observed on sample 3 (ITC vs ITC Limited) |
+| Runtime tolerable (n=3 gate) | ✅ ~60–90 s first sample (model load), then 1–3 s/sample |
 
 ---
 
@@ -74,6 +156,8 @@ python scripts/generate_plots.py
 | **Exact Match (EM)** | Normalized string match to any reference answer | DocVQA |
 | **ANLS** | Average normalized Levenshtein similarity | DocVQA |
 | **invalid_budget** | Row excluded if pixel ±3%, byte ±2%, or patch count ≠ target | Fairness filter |
+| **not_applicable** | Method does not use this budget axis (e.g. `jpeg` + `area_0.25`) | Compatibility filter |
+| **experiment_stage** | `debug`, `sanity`, `pilot`, `paper` — paper tables use pilot/paper only | Run tagging |
 
 ---
 
@@ -105,65 +189,31 @@ python scripts/run_preprocessing.py --config configs/smoke_test.yaml
 
 ---
 
-## 4. OCR results (TextOCR) — dry-run
+## 4. OCR results (TextOCR)
 
-**Raw CSV:** `outputs/metrics/ocr_metrics.csv` (1,250 rows)  
-**Paper table:** `paper/tables/table_ocr_budget.csv`  
-**Plot:** `outputs/plots/cer_vs_budget.png`
+**Latest real CSV:** `outputs/metrics/ocr_metrics_textocr_debug_sanity.csv` (550 rows, 160 applicable)  
+**Legacy dry-run CSV:** `outputs/metrics/ocr_metrics.csv` (1,250 rows, CER/WER = 1.0)  
+**Plot:** `outputs/plots/cer_vs_budget.png` (regenerated from sanity CSV)
 
-### 4.1 Summary
+Real OCR uses **EasyOCR** (GPU when CUDA available). BOPS runs merge overview + per-patch OCR via `merge_patch_ocr`.
 
-| Stat | Value |
-|------|-------|
-| Samples | 50 (`textocr_pilot.jsonl`) |
-| Methods | original, resize, jpeg, webp, bops |
-| Budgets | area_1.0, area_0.5, area_0.25, kb_500, kb_200 |
-| Mean runtime | 0.755 s/sample (preprocessing + dry OCR) |
-| invalid_budget rows | 187 / 1,250 (excluded from paper table) |
-
-### 4.2 Aggregated means (valid budget only)
-
-From `paper/tables/table_ocr_budget.csv`. Empty cells = method/budget combo not applicable.
-
-| method | budget | CER | WER | n |
-|--------|--------|-----|-----|---|
-| original | area_1.0 | 1.000 | 1.000 | 50 |
-| original | area_0.5 | 1.000 | 1.000 | 50 |
-| original | area_0.25 | 1.000 | 1.000 | 50 |
-| original | kb_500 | 1.000 | 1.000 | 50 |
-| original | kb_200 | 1.000 | 1.000 | 50 |
-| resize | area_1.0 | 1.000 | 1.000 | 50 |
-| resize | area_0.5 | 1.000 | 1.000 | 50 |
-| resize | area_0.25 | 1.000 | 1.000 | 50 |
-| jpeg | kb_500 | 1.000 | 1.000 | 1 |
-| jpeg | kb_200 | 1.000 | 1.000 | 6 |
-| webp | kb_500 | 1.000 | 1.000 | 1 |
-| webp | kb_200 | 1.000 | 1.000 | 5 |
-| bops | area_1.0 | 1.000 | 1.000 | 50 |
-| bops | area_0.5 | 1.000 | 1.000 | 50 |
-| bops | area_0.25 | 1.000 | 1.000 | 50 |
-| bops | kb_500 | 1.000 | 1.000 | 50 |
-| bops | kb_200 | 1.000 | 1.000 | 50 |
-
-*CER/WER = 1.0 because `--dry-run` skips OCR and uses empty predictions.*
-
-### 4.3 Re-run with real OCR
+### 4.1 Pilot-scale next step
 
 ```bash
-pip install easyocr
 python scripts/run_ocr_eval.py \
   --manifest data/manifests/textocr_pilot.jsonl \
   --methods original resize jpeg webp bops \
-  --budgets area_1.0 area_0.5 area_0.25 kb_500 kb_200 \
-  --limit 50
+  --budgets area_1.0 area_0.5 area_0.25 area_0.125 kb_500 kb_200 kb_100 kb_50 patches_2 patches_4 patches_8 \
+  --limit 50 --experiment-stage pilot
 ```
 
 ---
 
 ## 5. VLM results (DocVQA)
 
-**Raw CSV:** `outputs/metrics/vlm_metrics.csv`  
-**Paper table:** `paper/tables/table_vlm_patches.csv`
+**Latest merged CSV:** `outputs/metrics/vlm_metrics_merged.csv` (50 sanity rows)  
+**Per-method CSVs:** `outputs/metrics/vlm_metrics_docvqa_debug_{method}_{suffix}.csv`  
+**Legacy dry-run CSV:** `outputs/metrics/vlm_metrics.csv`
 
 ### 5.1 Real Qwen inference (2026-06-30, RTX 3050)
 
@@ -190,23 +240,24 @@ python scripts/run_vlm_eval.py \
 |--------|-------------|-----|------|---|
 | bops | 4 | 0.000 | 0.000 | 10 |
 
-### 5.3 Larger eval (recommended next)
+### 5.3 Pilot-scale next step
 
 ```bash
-python scripts/run_vlm_eval.py \
-  --manifest data/manifests/docvqa_pilot.jsonl \
-  --method resize --limit 10
+for method in resize overview_only random uniform bops; do
+  python scripts/run_vlm_eval.py \
+    --manifest data/manifests/docvqa_pilot.jsonl \
+    --method $method --num-patches 2 --limit 20 \
+    --experiment-stage pilot
+done
+python scripts/merge_vlm_metrics.py
 ```
 
 ---
 
 ## 6. Failure analysis
 
-| failure_type | count |
-|--------------|-------|
-| other | 10 |
-
-All failures are dry-run placeholders (`prediction = "dry-run"`).
+**Latest:** `outputs/failure_cases/vlm_failures.csv` — 36 VLM failures from sanity n=10 (EM=0 cases).  
+Legacy dry-run failures were all `prediction = "dry-run"`.
 
 ---
 
@@ -233,8 +284,10 @@ Invalid rows are excluded from `paper/tables/table_ocr_budget.csv`.
 | 9–10 — VLM pipeline (dry-run) | ✅ |
 | 11 — Ablations (dry-run) | ✅ |
 | 13–16 — Paper tables + plot | ✅ |
-| Real OCR inference | ⏳ needs EasyOCR |
-| Real Qwen inference | ⏳ needs CUDA GPU |
+| Real OCR inference (sanity n=10) | ✅ EasyOCR GPU |
+| Real Qwen inference (sanity n=10) | ✅ Qwen 4-bit on RTX 3050 |
+| Pilot-scale OCR/VLM | ⏳ next |
+| Paper-scale tables | ⏳ needs `experiment_stage=paper` |
 
 ---
 

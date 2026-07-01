@@ -68,7 +68,7 @@ def load_vlm(model_name: str = "Qwen/Qwen2.5-VL-3B-Instruct", load_in_4bit: bool
     return _model, _processor
 
 
-def _generate(images: list[Image.Image], prompt: str, max_new_tokens: int = 64) -> str:
+def _generate(images: list[Image.Image], prompt: str, max_new_tokens: int = 64) -> tuple[str, str]:
     """Run chat-template generation with one or more images.
 
     Args:
@@ -77,7 +77,7 @@ def _generate(images: list[Image.Image], prompt: str, max_new_tokens: int = 64) 
         max_new_tokens: Generation length cap.
 
     Returns:
-        Parsed answer string.
+        Tuple of (raw decoded string, parsed answer).
     """
     model, processor = load_vlm()
     images = [_resize_for_vlm(im) for im in images]
@@ -87,11 +87,11 @@ def _generate(images: list[Image.Image], prompt: str, max_new_tokens: int = 64) 
     inputs = {k: v.to(model.device) if hasattr(v, "to") else v for k, v in inputs.items()}
     with torch.inference_mode():
         out = model.generate(**inputs, max_new_tokens=max_new_tokens)
-    decoded = processor.batch_decode(out, skip_special_tokens=True)[0]
-    return parse_answer(decoded)
+    raw = processor.batch_decode(out, skip_special_tokens=True)[0]
+    return raw, parse_answer(raw)
 
 
-def run_vlm_single(image: Image.Image, question: str) -> str:
+def run_vlm_single(image: Image.Image, question: str) -> tuple[str, str]:
     """Answer a DocVQA question given a single preprocessed image.
 
     Args:
@@ -99,7 +99,7 @@ def run_vlm_single(image: Image.Image, question: str) -> str:
         question: Document question.
 
     Returns:
-        Model answer string.
+        Tuple of (raw model output, parsed answer).
     """
     prompt = format_single(question)
     return _generate([image], prompt)
@@ -109,7 +109,7 @@ def run_vlm_overview_patches(
     overview: Image.Image,
     patches: list[Image.Image],
     question: str,
-) -> str:
+) -> tuple[str, str]:
     """Answer a DocVQA question using overview + high-res patches (BOPS).
 
     Args:
@@ -118,7 +118,7 @@ def run_vlm_overview_patches(
         question: Document question.
 
     Returns:
-        Model answer string.
+        Tuple of (raw model output, parsed answer).
     """
     prompt = format_overview_patches(question)
     images = [overview] + patches
