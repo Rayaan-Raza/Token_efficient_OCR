@@ -2,7 +2,8 @@
 
 Research pipeline for comparing document-image preprocessing methods under **equal visual budgets**. The proposed method (BOPS) sends a low-resolution overview plus K OCR-guided high-resolution patches to downstream OCR or vision-language models, instead of naive resize or compression.
 
-**Results & comparisons:** see [RESULTS.md](RESULTS.md) for dataset audits, metric tables, ablations, and phase status.
+**Results & comparisons:** see [RESULTS.md](RESULTS.md) for sanity/pilot numbers, bootstrap CIs, and gate verdicts.  
+**Architecture:** see [LOGIC.md](LOGIC.md) for design, data flow, and module reference.
 
 ---
 
@@ -12,22 +13,27 @@ Research pipeline for comparing document-image preprocessing methods under **equ
 2. **Evaluate OCR** on TextOCR (CER, WER, word recall)
 3. **Evaluate VLM QA** on DocVQA (Exact Match, ANLS)
 4. **Compare baselines** (resize, JPEG, WebP, random/uniform patches) vs BOPS
-5. **Generate paper assets** (tables, plots, failure analysis)
+5. **Generate paper assets** (tables, plots, bootstrap CIs, failure analysis)
 
 ---
 
 ## Methods
 
-| Method | Description |
-|--------|-------------|
-| `original` | Full-resolution baseline |
-| `resize` | Area-ratio downscale (±3% pixel tolerance) |
-| `jpeg` / `webp` | Byte-budget compression (±2% tolerance) |
-| `bops` | Overview + K OCR-guided patches |
-| `overview_only` | Global context only (VLM ablation) |
-| `random` / `uniform` | Patch selection baselines (VLM ablation) |
+| Method | Description | Budget axis |
+|--------|-------------|-------------|
+| `original` | Full-resolution baseline | `area_1.0` / `reference` |
+| `resize` | Area-ratio downscale (±3% pixel tolerance) | `area_*` |
+| `jpeg` / `webp` | Byte-budget compression (`actual ≤ target`) | `kb_*` |
+| `bops` | Overview + K OCR-guided patches (merge OCR for eval) | `patches_*` |
+| `overview_only` | Global context only (VLM ablation) | `patches_0` |
+| `random` / `uniform` | Patch selection baselines (VLM ablation) | `patches_K` |
 
-Budget-fairness: rows with `invalid_budget=true` are excluded from aggregates. See [RESULTS.md §7](RESULTS.md#7-budget-fairness).
+**Fairness rules:**
+- `not_applicable=true` — method does not use this budget axis (e.g. `jpeg` + `area_0.25`); skipped, not compared
+- `invalid_budget=true` — budget was attempted but missed (pixel ±3%, byte over target, patch count ≠ K); excluded from aggregates
+- `underutilized_budget=true` — byte compression used <70% of target; reported, **not** excluded
+
+Paper tables filter: `dry_run=false`, `not_applicable=false`, `invalid_budget=false`, `experiment_stage ∈ {pilot, paper}`.
 
 ---
 
@@ -38,7 +44,15 @@ Budget-fairness: rows with `invalid_budget=true` are excluded from aggregates. S
 | **TextOCR** | OCR evaluation | `data/train_val_images/train_images/` + `data/raw/textocr/` |
 | **DocVQA** | VLM QA evaluation | `data/raw/docvqa_hf/images/` (500 validation samples) |
 
-Manifests live in `data/manifests/` (`textocr_debug`, `textocr_pilot`, `docvqa_debug`, `docvqa_pilot`, `docvqa_val_500`).
+Manifests in `data/manifests/` (or `Data/manifests/` on Windows):
+
+| Manifest | Samples | Stage |
+|----------|---------|-------|
+| `textocr_debug.jsonl` | 50 | sanity / debug |
+| `textocr_pilot.jsonl` | 200 | pilot OCR |
+| `docvqa_debug.jsonl` | 20 | sanity / debug VLM |
+| `docvqa_pilot.jsonl` | 100 | pilot VLM |
+| `docvqa_val_500.jsonl` | 500 | full export |
 
 ---
 
@@ -48,22 +62,20 @@ Manifests live in `data/manifests/` (`textocr_debug`, `textocr_pilot`, `docvqa_d
 pip install -r requirements.txt
 ```
 
-**OCR backend** (pick one):
+**OCR backend** (EasyOCR recommended on Python 3.14):
 
 ```bash
-pip install easyocr          # works on Python 3.14
-# or
-pip install paddleocr paddlepaddle   # if supported on your platform
+pip install easyocr torch   # GPU used when CUDA available
 ```
 
 **VLM** (GPU required — RTX 3050 4 GB works with 4-bit Qwen):
 
 ```bash
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
-pip install transformers bitsandbytes accelerate
+pip install transformers bitsandbytes accelerate qwen-vl-utils
 ```
 
-Model: `Qwen/Qwen2.5-VL-3B-Instruct` (4-bit). See [RESULTS.md §10](RESULTS.md#10-qwen-local-inference). Close other GPU apps before eval.
+Model: `Qwen/Qwen2.5-VL-3B-Instruct` (4-bit). Close other GPU apps before long evals.
 
 ---
 
@@ -87,37 +99,59 @@ python -m pytest tests/ -q
 
 ## Reproduce experiments
 
-Use `--dry-run` on OCR/VLM scripts until backends are installed. Full phase orchestration:
+### Sanity (n=10)
 
 ```bash
-python scripts/run_full_experiment.py --phase debug
-python scripts/run_full_experiment.py --phase pilot
-python scripts/run_full_experiment.py --phase ablation
-python scripts/run_full_experiment.py --phase paper
+python scripts/run_ocr_eval.py \
+  --manifest data/manifests/textocr_debug.jsonl \
+  --methods original resize jpeg webp bops \
+  --budgets area_1.0 area_0.5 area_0.25 area_0.125 kb_500 kb_200 kb_100 kb_50 patches_2 patches_4 patches_8 \
+  --limit 10 --experiment-stage sanity --overwrite
+
+for method in resize overview_only random uniform bops; do
+  python scripts/run_vlm_eval.py \
+    --manifest data/manifests/docvqa_debug.jsonl \
+    --method $method --num-patches 2 --limit 10 \
+    --experiment-stage sanity --overwrite
+done
+python scripts/merge_vlm_metrics.py
 ```
 
-Individual entry points:
+### Pilot (real inference)
 
 ```bash
-# OCR on TextOCR
+# OCR — resumable; checkpoints every 20 images (re-run same command to continue)
 python scripts/run_ocr_eval.py \
   --manifest data/manifests/textocr_pilot.jsonl \
   --methods original resize jpeg webp bops \
-  --budgets area_0.5 area_0.25 kb_200 \
-  --limit 20
+  --budgets area_1.0 area_0.5 area_0.25 area_0.125 kb_500 kb_200 kb_100 kb_50 patches_2 patches_4 patches_8 \
+  --limit 200 --experiment-stage pilot --checkpoint-every 20
 
-# VLM on DocVQA
-python scripts/run_vlm_eval.py \
-  --manifest data/manifests/docvqa_pilot.jsonl \
-  --method bops --num-patches 4 --limit 10
-
-# Paper tables + plots
-python scripts/make_paper_assets.py
-python scripts/generate_plots.py
-python scripts/analyze_failures.py
+# VLM — one CSV per method (no overwrite unless --overwrite)
+for method in resize overview_only random uniform bops; do
+  python scripts/run_vlm_eval.py \
+    --manifest data/manifests/docvqa_pilot.jsonl \
+    --method $method --num-patches 2 --limit 100 \
+    --experiment-stage pilot --overwrite
+done
+python scripts/merge_vlm_metrics.py
 ```
 
-After each batch, update [RESULTS.md](RESULTS.md) with new numbers.
+### Paper assets
+
+```bash
+python scripts/make_paper_assets.py      # tables (pilot/paper rows only)
+python scripts/generate_plots.py         # cer_vs_budget.png
+python scripts/bootstrap_pilot_stats.py  # paired 95% CIs
+python scripts/analyze_failures.py       # VLM failure cases
+```
+
+### Orchestration (explicit dry-run vs real)
+
+```bash
+python scripts/run_full_experiment.py --phase debug --dry-run
+python scripts/run_full_experiment.py --phase pilot --real
+```
 
 ---
 
@@ -125,20 +159,27 @@ After each batch, update [RESULTS.md](RESULTS.md) with new numbers.
 
 ```
 ├── src/
-│   ├── data/           # Manifest builders, validation, dataset loader
-│   ├── preprocessing/  # Resize, compression, BOPS patch selection
-│   ├── ocr/            # OCR backends + CER/WER/word recall
-│   ├── vlm/            # Qwen2.5-VL harness + DocVQA metrics
-│   ├── metrics/        # Aggregation + statistical tests
-│   ├── visualization/  # Budget degradation plots
-│   └── utils/          # Paths, config, I/O, budget checks
-├── scripts/            # CLI entry points
-├── configs/            # Experiment YAML files
-├── data/               # Manifests + raw data (large files gitignored)
-├── outputs/            # Metrics, plots, audit reports (gitignored)
-├── paper/              # draft.tex, advisor deck, table CSVs
-├── tests/              # Unit tests (14 tests)
-└── RESULTS.md          # Living experiment log
+│   ├── data/              # Manifest builders, validation, dataset loader
+│   ├── preprocessing/     # Resize, compression, BOPS patch selection
+│   ├── ocr/               # OCR backends, merge_patch_ocr, metrics
+│   ├── vlm/               # Qwen harness, patch diagnostics, QA metrics
+│   ├── metrics/           # Aggregation + bootstrap statistical tests
+│   ├── visualization/     # Budget degradation plots
+│   └── utils/             # paths, budget_check, budget_compat, experiment_io, ocr_cache
+├── scripts/
+│   ├── run_ocr_eval.py           # OCR eval (resumable checkpoints)
+│   ├── run_vlm_eval.py           # VLM eval (per-method CSV)
+│   ├── merge_vlm_metrics.py      # Combine VLM CSVs
+│   ├── bootstrap_pilot_stats.py  # Paired bootstrap CIs
+│   ├── make_paper_assets.py      # Paper table generation
+│   └── run_full_experiment.py    # Phase orchestration (--dry-run / --real)
+├── configs/               # Experiment YAML files
+├── data/                  # Manifests + raw data (large files gitignored)
+├── outputs/               # Metrics, plots, checkpoints, cache (gitignored)
+├── paper/                 # draft.tex, advisor deck, table CSVs
+├── tests/                 # Unit tests (31 tests)
+├── RESULTS.md             # Living experiment log
+└── LOGIC.md               # Architecture reference
 ```
 
 ---
@@ -147,12 +188,13 @@ After each batch, update [RESULTS.md](RESULTS.md) with new numbers.
 
 | Metric | Formula / rule |
 |--------|----------------|
-| **Word recall (v1)** | matched normalized GT tokens ÷ total GT tokens |
-| **CER / WER** | Standard character/word error rate |
+| **Word recall (v1)** | matched normalized GT tokens ÷ total GT tokens (primary OCR sanity metric) |
+| **CER / WER** | Standard character/word error rate (secondary) |
 | **Exact Match** | Normalized prediction equals any reference answer |
 | **ANLS** | Average normalized Levenshtein similarity |
+| **byte_utilization** | `actual_bytes / target_bytes` for compression baselines |
 
-Implementation: `src/ocr/ocr_metrics.py`, `src/vlm/qa_metrics.py`.
+Implementation: `src/ocr/ocr_metrics.py`, `src/vlm/qa_metrics.py`, `src/metrics/statistical_tests.py`.
 
 ---
 
@@ -171,8 +213,6 @@ python scripts/convert_textocr_annotations.py
 python scripts/audit_datasets.py
 ```
 
-See `Data/how_to_get_huggingface_dataset.txt` for Hugging Face details.
-
 ---
 
 ## Paper artifacts
@@ -181,20 +221,29 @@ See `Data/how_to_get_huggingface_dataset.txt` for Hugging Face details.
 |------|---------|
 | `paper/draft.tex` | Paper draft |
 | `paper/advisor_deck.md` | 10-slide summary |
-| `paper/tables/table_ocr_budget.csv` | OCR means by method × budget |
-| `paper/tables/table_vlm_patches.csv` | VLM means by method × patch count |
-| `RESULTS.md` | Full results log with comparisons |
+| `paper/tables/table_ocr_budget.csv` | OCR means by method × budget (pilot) |
+| `paper/tables/table_vlm_patches.csv` | VLM means by method × K (pilot) |
+| `paper/tables/bootstrap_ci.csv` | Paired 95% confidence intervals |
+| `RESULTS.md` | Full results log with gate verdicts |
 
 ---
 
-## Current status
+## Current status (2026-07-02)
 
 | Component | Status |
 |-----------|--------|
 | Pipeline code | Complete |
-| Unit tests | 14/14 passing |
+| Unit tests | **31/31** passing |
 | Dataset audit | Passed (21,778 TextOCR, 500 DocVQA) |
-| Real OCR/VLM runs | Pending — see [RESULTS.md](RESULTS.md) |
+| Real OCR (sanity n=10 + pilot n=200) | ✅ EasyOCR GPU |
+| Real VLM (sanity n=10 + pilot n=100) | ✅ Qwen 4-bit on RTX 3050 |
+| OCR pilot gate | **Passed** — BOPS p8 > resize a0.25 (bootstrap CI significant) |
+| VLM pilot gate | **Inconclusive** — BOPS ≈ random; loses to uniform/resize |
+| Paper-scale runs | Not started (`experiment_stage=paper`) |
+
+**Pilot direction:** empirical study (clear OCR gains; VLM patch selection needs improvement). See [RESULTS.md](RESULTS.md) for numbers and claim boundaries.
+
+**Not implemented:** seam carving (optional Phase 12 in proposal only).
 
 ---
 

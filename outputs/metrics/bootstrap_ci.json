@@ -1,0 +1,47 @@
+[
+  {
+    "track": "ocr",
+    "comparison": "bops_p8_vs_resize_a025",
+    "metric": "word_recall",
+    "mean_diff": 0.07673540038572577,
+    "ci_lower": 0.05202852433259062,
+    "ci_upper": 0.10222334834141288,
+    "n_pairs": 200
+  },
+  {
+    "track": "ocr",
+    "comparison": "bops_p8_vs_original",
+    "metric": "word_recall",
+    "mean_diff": -0.034801144185922055,
+    "ci_lower": -0.05439111305968429,
+    "ci_upper": -0.015819789556134264,
+    "n_pairs": 200
+  },
+  {
+    "track": "vlm",
+    "comparison": "bops_vs_random",
+    "metric": "anls",
+    "mean_diff": 0.035922764227642276,
+    "ci_lower": -0.004396588269454122,
+    "ci_upper": 0.08302945702671312,
+    "n_pairs": 100
+  },
+  {
+    "track": "vlm",
+    "comparison": "bops_vs_uniform",
+    "metric": "anls",
+    "mean_diff": -0.018417002472943332,
+    "ci_lower": -0.08829669540229884,
+    "ci_upper": 0.04116216983820539,
+    "n_pairs": 100
+  },
+  {
+    "track": "vlm",
+    "comparison": "bops_vs_overview_only",
+    "metric": "anls",
+    "mean_diff": 0.003311339197860248,
+    "ci_lower": -0.04794009829541572,
+    "ci_upper": 0.05371168955387032,
+    "n_pairs": 100
+  }
+]
