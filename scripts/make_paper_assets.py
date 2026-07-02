@@ -61,6 +61,10 @@ def main() -> None:
                 "cer_mean": ("cer", "mean"),
                 "wer_mean": ("wer", "mean"),
                 "word_recall_mean": ("word_recall", "mean"),
+                "word_precision_mean": ("word_precision", "mean"),
+                "word_f1_mean": ("word_f1", "mean"),
+                "predicted_token_count_mean": ("predicted_token_count", "mean"),
+                "duplicate_token_ratio_mean": ("duplicate_token_ratio", "mean"),
                 "n": ("cer", "count"),
             }
             if "byte_utilization" in valid.columns:
@@ -81,6 +85,14 @@ def main() -> None:
             ).reset_index()
             summary.to_csv(paper_tables / "table_vlm_patches.csv", index=False)
             print(f"Wrote {paper_tables / 'table_vlm_patches.csv'}")
+
+    # Mirror to latex_v2
+    v2_tables = repo_path("paper", "latex_v2", "tables")
+    v2_tables.mkdir(parents=True, exist_ok=True)
+    for name in ("table_ocr_budget.csv", "table_vlm_patches.csv"):
+        src = paper_tables / name
+        if src.exists():
+            (v2_tables / name).write_bytes(src.read_bytes())
 
 
 if __name__ == "__main__":

@@ -1,17 +1,66 @@
 \documentclass{article}
+\usepackage{graphicx}
+\usepackage{subcaption}
 \title{Budget-Aware OCR-Guided Patch Selection for Text-Rich Image Understanding}
 \author{BOPS Project}
 \begin{document}
 \maketitle
 \begin{abstract}
 We study input-side preprocessing for text-rich images under matched visual budgets.
+BOPS significantly improves OCR word recall over aggressive spatial resizing, but question-agnostic OCR-guided patch selection does not reliably transfer to DocVQA/VLM performance because selected patches often miss answer-bearing regions.
 \end{abstract}
+
 \section{Introduction}
+
 \section{Method}
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/bops_pipeline.pdf}
+  \caption{BOPS pipeline: low-resolution overview plus $K$ OCR-guided high-resolution patches.}
+  \label{fig:bops-pipeline}
+\end{figure}
+
 \section{Experimental Setup}
+
 \section{Results}
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/ocr_word_recall_budget.pdf}
+  \caption{OCR word recall vs budget on TextOCR pilot ($n{=}200$). BOPS \texttt{patches\_8} (0.245) significantly exceeds resize \texttt{area\_0.25} (0.168); paired bootstrap 95\% CI $[+0.052,+0.102]$.}
+  \label{fig:ocr-word-recall}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.85\linewidth]{figures/vlm_anls_methods.pdf}
+  \caption{DocVQA pilot VLM scores ($n{=}100$, $K{=}2$). Resize is the strongest baseline; BOPS does not beat uniform or random with statistical significance.}
+  \label{fig:vlm-methods}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.7\linewidth]{figures/answer_coverage_diagnostics.pdf}
+  \caption{Answer coverage diagnostic for BOPS: ground-truth answer appears in full-image OCR for 76\% of samples but in selected-patch OCR for only $\sim$6\%.}
+  \label{fig:answer-coverage}
+\end{figure}
+
 \section{Ablations}
+
 \section{Failure Analysis}
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/failure_panel.pdf}
+  \caption{Representative BOPS failures: selected patches (red) miss answer-bearing OCR regions (green).}
+  \label{fig:failure-panel}
+\end{figure}
+
 \section{Limitations}
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/runtime_comparison.pdf}
+  \caption{Median runtime per sample. BOPS is substantially slower than resize while underperforming on VLM DocVQA in the pilot.}
+  \label{fig:runtime}
+\end{figure}
+
 \section{Conclusion}
 \end{document}

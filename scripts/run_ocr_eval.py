@@ -33,7 +33,15 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from src.data.dataset_loader import iter_manifest
 from src.ocr.merge_patch_ocr import merge_patch_ocr
-from src.ocr.ocr_metrics import cer, wer, word_recall
+from src.ocr.ocr_metrics import (
+    cer,
+    duplicate_token_ratio,
+    predicted_token_count,
+    wer,
+    word_f1,
+    word_precision,
+    word_recall,
+)
 from src.ocr.run_ocr import get_ocr, run_ocr_on_image
 from src.preprocessing.bops import run_bops
 from src.preprocessing.compression import compress_image_to_file
@@ -380,6 +388,10 @@ def main() -> None:
                     pred = run_ocr_prediction(main_path, patch_paths, method, args.dry_run)
                     runtime = round(time.perf_counter() - t0, 3)
                     wr = word_recall(pred, gt)
+                    wp = word_precision(pred, gt)
+                    wf1 = word_f1(pred, gt)
+                    ptc = predicted_token_count(pred)
+                    dup = duplicate_token_ratio(pred)
 
                     row = {
                         "run_id": run_id,
@@ -395,13 +407,17 @@ def main() -> None:
                         "cer": cer(pred, gt),
                         "wer": wer(pred, gt),
                         "word_recall": wr,
+                        "word_precision": wp,
+                        "word_f1": wf1,
+                        "predicted_token_count": ptc,
+                        "duplicate_token_ratio": dup,
                         "runtime_sec": runtime,
                         "model_name": MODEL_NAME_OCR,
                         **{k: meta.get(k) for k in _META_KEYS},
                     }
                     print(
                         f"     {method:8s} {budget_norm:12s} | "
-                        f"word_recall={wr:.3f} cer={row['cer']:.3f} | {runtime:.2f}s",
+                        f"word_recall={wr:.3f} prec={wp:.3f} f1={wf1:.3f} | {runtime:.2f}s",
                         flush=True,
                     )
                 except Exception as e:

@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from src.utils.experiment_io import (
+    default_vlm_checkpoint_path,
     default_vlm_metrics_path,
     vlm_patch_suffix,
     write_or_append_csv,
@@ -26,6 +27,14 @@ def test_vlm_default_path_includes_manifest_stem(tmp_path, monkeypatch):
     monkeypatch.setattr(experiment_io, "outputs_path", lambda *parts: tmp_path.joinpath(*parts))
     p = default_vlm_metrics_path("data/manifests/docvqa_debug.jsonl", "bops", 2)
     assert p.name == "vlm_metrics_docvqa_debug_bops_k2.csv"
+
+
+def test_vlm_checkpoint_path(tmp_path, monkeypatch):
+    from src.utils import experiment_io
+
+    monkeypatch.setattr(experiment_io, "outputs_path", lambda *parts: tmp_path.joinpath(*parts))
+    p = default_vlm_checkpoint_path("data/manifests/docvqa_pilot.jsonl", "bops_qa", 2, "pilot")
+    assert p.name == "vlm_eval_docvqa_pilot_bops_qa_k2_pilot.json"
 
 
 def test_write_or_append_csv_no_clobber(tmp_path):

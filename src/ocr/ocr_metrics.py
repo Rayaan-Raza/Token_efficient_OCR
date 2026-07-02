@@ -67,6 +67,13 @@ def word_recall(prediction: str, ground_truth: str) -> float:
     gt_tokens = tokenize(ground_truth)
     if not gt_tokens:
         return 1.0 if not tokenize(prediction) else 0.0
+    matched, _, _ = _token_match_counts(prediction, ground_truth)
+    return matched / len(gt_tokens)
+
+
+def _token_match_counts(prediction: str, ground_truth: str) -> tuple[int, int, int]:
+    """Return (matched, gt_count, pred_count) with count-aware exact token matching."""
+    gt_tokens = tokenize(ground_truth)
     pred_tokens = tokenize(prediction)
     pred_counts: dict[str, int] = {}
     for t in pred_tokens:
@@ -76,4 +83,35 @@ def word_recall(prediction: str, ground_truth: str) -> float:
         if pred_counts.get(t, 0) > 0:
             matched += 1
             pred_counts[t] -= 1
-    return matched / len(gt_tokens)
+    return matched, len(gt_tokens), len(pred_tokens)
+
+
+def word_precision(prediction: str, ground_truth: str) -> float:
+    """Matched prediction tokens / total prediction tokens (count-aware)."""
+    _, _, pred_count = _token_match_counts(prediction, ground_truth)
+    if pred_count == 0:
+        return 1.0 if not tokenize(ground_truth) else 0.0
+    matched, _, _ = _token_match_counts(prediction, ground_truth)
+    return matched / pred_count
+
+
+def word_f1(prediction: str, ground_truth: str) -> float:
+    """Harmonic mean of word precision and word recall."""
+    p = word_precision(prediction, ground_truth)
+    r = word_recall(prediction, ground_truth)
+    if p + r == 0:
+        return 0.0
+    return 2 * p * r / (p + r)
+
+
+def predicted_token_count(prediction: str) -> int:
+    """Number of normalized tokens in the OCR prediction."""
+    return len(tokenize(prediction))
+
+
+def duplicate_token_ratio(prediction: str) -> float:
+    """Fraction of prediction tokens that are repeated (1 - unique/total)."""
+    tokens = tokenize(prediction)
+    if not tokens:
+        return 0.0
+    return 1.0 - len(set(tokens)) / len(tokens)

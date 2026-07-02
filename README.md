@@ -143,6 +143,7 @@ python scripts/merge_vlm_metrics.py
 python scripts/make_paper_assets.py      # tables (pilot/paper rows only)
 python scripts/generate_plots.py         # cer_vs_budget.png
 python scripts/bootstrap_pilot_stats.py  # paired 95% CIs
+python scripts/generate_paper_figures.py  # paper/figures/*.pdf
 python scripts/analyze_failures.py       # VLM failure cases
 ```
 
@@ -224,7 +225,20 @@ python scripts/audit_datasets.py
 | `paper/tables/table_ocr_budget.csv` | OCR means by method × budget (pilot) |
 | `paper/tables/table_vlm_patches.csv` | VLM means by method × K (pilot) |
 | `paper/tables/bootstrap_ci.csv` | Paired 95% confidence intervals |
+| `paper/tables/table_runtime.csv` | OCR/VLM runtime summary (pilot) |
+| `paper/figures/*.pdf` | Publication figures (see below) |
 | `RESULTS.md` | Full results log with gate verdicts |
+
+**Paper figures** (regenerate with `python scripts/generate_paper_figures.py`):
+
+| File | Content |
+|------|---------|
+| `figures/bops_pipeline.pdf` | Method schematic |
+| `figures/ocr_word_recall_budget.pdf` | Primary OCR claim (word recall) |
+| `figures/vlm_anls_methods.pdf` | VLM ANLS + EM bar chart |
+| `figures/answer_coverage_diagnostics.pdf` | 76% vs 6% answer-in-OCR diagnostic |
+| `figures/failure_panel.pdf` | Qualitative patch-selection failures |
+| `figures/runtime_comparison.pdf` | OCR/VLM runtime cost |
 
 ---
 

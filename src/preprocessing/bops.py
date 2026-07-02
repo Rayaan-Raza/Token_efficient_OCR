@@ -25,6 +25,7 @@ from src.preprocessing.overview import generate_overview
 from src.preprocessing.patch_grid import Patch, crop_patch, generate_grid_patches
 from src.preprocessing.patch_nms import nms_patches
 from src.preprocessing.patch_scoring import score_patch
+from src.preprocessing.patch_scoring_qa import score_patch_question_aware
 from src.utils.budget_check import check_patch_budget, merge_budget_fields
 
 
@@ -57,6 +58,28 @@ def select_uniform_patches(candidates: list[Patch], k: int) -> list[Patch]:
         return candidates
     step = len(candidates) / k
     return [candidates[int(i * step)] for i in range(k)]
+
+
+def select_question_aware_patches(
+    image: Image.Image,
+    candidates: list[Patch],
+    k: int,
+    question: str,
+    ocr_boxes: list[dict[str, Any]] | None = None,
+) -> tuple[list[Patch], list[float]]:
+    """Score patches with question-aware OCR guidance and apply NMS."""
+    if ocr_boxes is None:
+        import tempfile
+
+        tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        image.save(tmp.name)
+        ocr_boxes = run_ocr_with_boxes(tmp.name)
+    scores = [
+        score_patch_question_aware(image, p, ocr_boxes, question) for p in candidates
+    ]
+    selected = nms_patches(candidates, scores, iou_threshold=0.5, top_k=k)
+    sel_scores = [scores[candidates.index(p)] for p in selected]
+    return selected, sel_scores
 
 
 def select_ocr_guided_patches(
@@ -95,6 +118,7 @@ def run_bops(
     stride: int = 128,
     mode: str = "ocr_guided",
     seed: int = 0,
+    question: str | None = None,
 ) -> dict[str, Any]:
     """Run the full BOPS preprocessing pipeline on one image.
 
@@ -104,8 +128,9 @@ def run_bops(
         overview_target_pixels: Pixel budget for the low-res overview.
         patch_size: Side length of square patches.
         stride: Grid stride for candidate generation.
-        mode: ``ocr_guided``, ``random``, ``uniform``, or ``overview_only``.
+        mode: ``ocr_guided``, ``question_aware``, ``random``, ``uniform``, or ``overview_only``.
         seed: Random seed for ``random`` mode.
+        question: DocVQA question (required for ``question_aware``; never uses GT answer).
 
     Returns:
         Dict with keys ``overview``, ``patches`` (PIL images), ``patch_coords``,
@@ -123,6 +148,12 @@ def run_bops(
     elif mode == "overview_only":
         patches = []
         patch_scores = []
+    elif mode == "question_aware":
+        if not question:
+            raise ValueError("question_aware mode requires question string")
+        patches, patch_scores = select_question_aware_patches(
+            image, candidates, num_patches, question
+        )
     else:
         patches, patch_scores = select_ocr_guided_patches(image, candidates, num_patches)
 

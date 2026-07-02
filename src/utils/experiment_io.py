@@ -70,7 +70,26 @@ def default_ocr_checkpoint_path(manifest_path: str | Path, experiment_stage: str
     return outputs_path("checkpoints", f"ocr_eval_{stem}_{experiment_stage}.json")
 
 
-def load_ocr_checkpoint(path: str | Path) -> dict[str, Any] | None:
+def default_vlm_checkpoint_path(
+    manifest_path: str | Path,
+    method: str,
+    num_patches: int,
+    experiment_stage: str,
+) -> Path:
+    """Checkpoint JSON path for resumable VLM eval runs."""
+    stem = manifest_stem(manifest_path)
+    suffix = vlm_patch_suffix(method, num_patches)
+    return outputs_path("checkpoints", f"vlm_eval_{stem}_{method}_{suffix}_{experiment_stage}.json")
+
+
+def load_vlm_checkpoint(path: str | Path) -> dict[str, Any] | None:
+    """Load VLM eval checkpoint if present."""
+    return load_ocr_checkpoint(path)
+
+
+def save_vlm_checkpoint(path: str | Path, payload: dict[str, Any]) -> Path:
+    """Persist VLM eval checkpoint atomically."""
+    return save_ocr_checkpoint(path, payload)
     """Load OCR eval checkpoint if present."""
     p = Path(path)
     if not p.exists():

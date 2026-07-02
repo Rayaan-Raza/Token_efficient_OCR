@@ -1,0 +1,12 @@
+track,method,n,runtime_mean_sec,runtime_median_sec,runtime_p90_sec
+ocr,bops,600,3.115,2.276,5.125
+ocr,jpeg,798,1.163,0.784,2.29
+ocr,original,200,1.533,1.121,2.495
+ocr,resize,800,0.865,0.554,1.955
+ocr,webp,798,3.281,2.692,4.732
+vlm,bops,100,25.842,20.905,48.483
+vlm,bops_qa,100,20.718,20.082,29.627
+vlm,overview_only,100,25.192,28.74,38.362
+vlm,random,100,2.76,1.812,4.263
+vlm,resize,100,3.085,2.508,3.561
+vlm,uniform,100,2.834,2.067,4.314
