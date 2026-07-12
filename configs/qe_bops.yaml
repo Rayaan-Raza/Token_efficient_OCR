@@ -1,0 +1,78 @@
+# QE-BOPS frozen experiment configuration (headline track)
+ocr:
+  headline_engine: easyocr
+  appendix_engine: tesseract
+
+overview:
+  long_side_px: 1024
+
+candidate_pool:
+  square_256_stride: 128
+  square_384_stride: 192
+  strip_sizes:
+    - [256, 512]
+    - [512, 256]
+  strip_overlap: 0.5
+  edge_anchoring: true
+  nms_iou: 0.30
+  include_ocr_line_centered: true
+  include_question_token_centered: true
+  include_table_row_strips: true
+
+selection:
+  mmr_lambda: 0.75
+  deterministic_seed: 42
+  random_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+gates:
+  g0:
+    bops_ocr_recall_p8: 0.240
+    bops_vlm_anls_k2: 0.193
+    ocr_recall_tol: 0.01
+    anls_tol: 0.02
+  g1:
+    candidates_min: 50
+    candidates_max: 400
+    unique_image_area_coverage_min: 0.90
+    ocr_box_center_coverage_min: 0.95
+    small_box_coverage_min: 0.90
+    edge_patch_rate_min: 0.95
+  g2:
+    oracle_at_2_min: 0.15
+    oracle_at_4_min: 0.30
+  g3_min:
+    coverage_k2_min: 0.12
+    coverage_k4_min: 0.25
+  g3_strong:
+    coverage_k2_min: 0.20
+    coverage_k4_min: 0.35
+
+manifests:
+  eval_sizes: [100, 300, 500]
+  ranker_val_fraction: 0.2
+  ranker_split_seed: 42
+
+labels:
+  soft_token_overlap_min: 0.70
+  fuzzy_anls_min: 0.50
+  box_overlap_area_ratio_min: 0.50
+
+ranker:
+  logreg:
+    C: 1.0
+    class_weight: balanced
+  lgbm:
+    n_estimators: 300
+    num_leaves: 31
+    learning_rate: 0.05
+    min_data_in_leaf: 20
+    feature_fraction: 0.8
+    bagging_fraction: 0.8
+    bagging_freq: 1
+  mlp:
+    hidden: [64, 32]
+    dropout: 0.1
+    batch_size: 256
+    lr: 0.001
+    max_epochs: 20
+    patience: 3

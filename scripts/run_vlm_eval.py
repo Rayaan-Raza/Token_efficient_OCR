@@ -30,7 +30,9 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from src.data.dataset_loader import iter_manifest
 from src.preprocessing.bops import run_bops
+from src.preprocessing.patch_grid import Patch
 from src.preprocessing.resize import resize_to_area_ratio
+from src.preprocessing.selectors import select_patches
 from src.utils.experiment_io import (
     default_vlm_checkpoint_path,
     default_vlm_metrics_path,
@@ -46,9 +48,41 @@ from src.utils.paths import repo_path
 from src.vlm.patch_diagnostics import compute_patch_diagnostics
 from src.vlm.qa_metrics import anls, exact_match
 from src.vlm.run_vlm import run_vlm_overview_patches, run_vlm_single
+from src.preprocessing.overview import generate_overview
+from src.utils.ocr_cache import load_cached_ocr_boxes
 
 VLM_MODEL_NAME = "Qwen/Qwen2.5-VL-3B-Instruct"
 CHECKPOINT_EVERY_DEFAULT = 10
+
+QE_BOPS_METHODS = {
+    "bops_fair_pool", "bops_qa_fair_pool", "bops_original", "qe_bops", "qe_bops_no_question",
+    "ocr_confidence_topk", "bm25_only", "question_overlap_topk", "answer_type_only",
+    "multiscale_uniform", "edge_strip",
+}
+
+
+def _sort_reading_order(patches: list[Patch]) -> list[Patch]:
+    return sorted(patches, key=lambda p: (p.y, p.x))
+
+
+def _run_qe_bops_vlm(
+    image,
+    record: dict[str, Any],
+    method: str,
+    num_patches: int,
+    seed: int = 0,
+) -> tuple[Any, list[Any], dict[str, Any]]:
+    """Run fair-pool selector + overview for VLM input."""
+    question = record.get("question", "")
+    boxes = load_cached_ocr_boxes(record["image_id"]) or []
+    sel = select_patches(image, method, num_patches, question, boxes, seed=seed)
+    overview, _ = generate_overview(image, 1_048_576)
+    patch_images = []
+    for p in _sort_reading_order(sel.patches):
+        from src.preprocessing.patch_grid import crop_patch
+        patch_images.append(crop_patch(image, p))
+    meta = {"mode": method, **sel.meta, "invalid_budget": False}
+    return overview, patch_images, meta
 
 _DIAG_NA = {
     "answer_in_selected_patch_ocr": None,
@@ -145,6 +179,17 @@ def _eval_one_sample(
         bops_result = run_bops(image, 0, mode="overview_only")
         invalid_budget = bool(bops_result["meta"].get("invalid_budget", False))
         raw_pred, parsed = run_vlm_single(bops_result["overview"], question)
+    elif method in QE_BOPS_METHODS or method in ("random", "uniform"):
+        overview, patch_images, meta = _run_qe_bops_vlm(image, record, method, num_patches)
+        invalid_budget = bool(meta.get("invalid_budget", False))
+        raw_pred, parsed = run_vlm_overview_patches(overview, patch_images, question)
+        bops_result = {
+            "overview": overview,
+            "patches": patch_images,
+            "meta": meta,
+            "patch_coords": [],
+        }
+        method_label = method
     else:
         if method == "bops_qa":
             mode_bops = "question_aware"
@@ -189,7 +234,12 @@ def main() -> None:
     parser.add_argument("--manifest", required=True, help="DocVQA JSONL manifest")
     parser.add_argument(
         "--method", default="bops",
-        choices=["resize", "overview_only", "random", "uniform", "bops", "bops_qa"],
+        choices=[
+            "resize", "overview_only", "random", "uniform", "bops", "bops_qa",
+            "bops_fair_pool", "bops_qa_fair_pool", "bops_original", "qe_bops", "qe_bops_no_question",
+            "ocr_confidence_topk", "bm25_only", "question_overlap_topk", "answer_type_only",
+            "multiscale_uniform", "edge_strip",
+        ],
     )
     parser.add_argument("--num-patches", type=int, default=4, help="Patch budget for patch modes")
     parser.add_argument("--limit", type=int, default=5, help="Max QA samples")

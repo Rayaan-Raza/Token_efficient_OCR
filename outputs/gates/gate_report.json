@@ -1,0 +1,20 @@
+{
+  "results": [
+    {
+      "name": "G1_candidates",
+      "passed": true,
+      "level": "min",
+      "metrics": {
+        "mean_candidates": 134.56,
+        "mean_unique_image_area_coverage": 1.0,
+        "mean_candidate_area_ratio": 2.0385175089051266,
+        "mean_ocr_box_center_coverage": 1.0,
+        "mean_small_box_coverage": 1.0,
+        "edge_patch_rate": 1.0
+      },
+      "threshold": "cands 50-400, union_area>0.9, ocr_box>0.95, small>0.9",
+      "message": ""
+    }
+  ],
+  "all_passed": true
+}
