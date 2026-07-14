@@ -152,6 +152,72 @@ def answer_in_selected_patches(answers: list[str], patch_texts: list[str]) -> bo
     return answer_in_text(answers, merged)
 
 
+def _label_index(label: dict[str, Any]) -> int:
+    return int(label.get("patch_index", label.get("index", -1)))
+
+
+def label_field_in_selected(
+    labels: list[dict[str, Any]],
+    selected_indices: set[int],
+    field: str,
+) -> bool:
+    """True if any selected patch has ``field`` set in hierarchical labels."""
+    for lbl in labels:
+        if _label_index(lbl) in selected_indices and bool(lbl.get(field)):
+            return True
+    return False
+
+
+def evidence_in_selected(labels: list[dict[str, Any]], selected_indices: set[int]) -> bool:
+    """Hierarchical evidence hit: exact OCR, box overlap, soft token, or fuzzy."""
+    return label_field_in_selected(labels, selected_indices, "label_positive")
+
+
+def ocr_exact_in_selected(labels: list[dict[str, Any]], selected_indices: set[int]) -> bool:
+    return label_field_in_selected(labels, selected_indices, "label_exact_patch_ocr")
+
+
+def mean_rank_of_first_positive(
+    ranked_indices: list[int],
+    labels_by_index: dict[int, dict[str, Any]],
+) -> float | None:
+    """1-indexed rank of first evidence-positive patch in candidate ranking."""
+    for rank, idx in enumerate(ranked_indices, start=1):
+        lbl = labels_by_index.get(idx)
+        if lbl and lbl.get("label_positive"):
+            return float(rank)
+    return None
+
+
+def rank_candidates_by_score(candidates: list[Patch], scores: list[float]) -> list[int]:
+    """Return patch indices sorted by descending score."""
+    if not candidates:
+        return []
+    if len(scores) != len(candidates):
+        return [p.index for p in candidates]
+    ranked = sorted(zip(candidates, scores), key=lambda x: x[1], reverse=True)
+    return [p.index for p, _ in ranked]
+
+
+def pool_reachability_rates(labels: list[dict[str, Any]]) -> dict[str, bool]:
+    """Per-question candidate-pool reachability under each evidence definition."""
+    if not labels:
+        return {
+            "candidate_evidence_reachability": False,
+            "candidate_ocr_exact_reachability": False,
+            "candidate_box_overlap_reachability": False,
+            "candidate_soft_token_reachability": False,
+            "candidate_fuzzy_reachability": False,
+        }
+    return {
+        "candidate_evidence_reachability": any(bool(l.get("label_positive")) for l in labels),
+        "candidate_ocr_exact_reachability": any(bool(l.get("label_exact_patch_ocr")) for l in labels),
+        "candidate_box_overlap_reachability": any(bool(l.get("label_fullpage_box_overlap")) for l in labels),
+        "candidate_soft_token_reachability": any(bool(l.get("label_soft_token_overlap")) for l in labels),
+        "candidate_fuzzy_reachability": any(bool(l.get("label_fuzzy_match")) for l in labels),
+    }
+
+
 def patch_from_dict(d: dict[str, Any]) -> Patch:
     return Patch(
         x=int(d["x"]),

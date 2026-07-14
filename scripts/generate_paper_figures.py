@@ -97,7 +97,7 @@ def main() -> None:
         figures.append(
             ("failure_panel_appendix", lambda: plot_failure_panel(
                 vlm_df, manifest, out_dir / "failure_panel_appendix",
-                max_examples=4, skip=1, layout="appendix", figsize_scale=1.05,
+                max_examples=2, skip=1, layout="appendix", figsize_scale=1.35,
                 title_suffix=" (supplementary)",
             )),
         )

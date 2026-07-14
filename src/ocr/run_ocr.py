@@ -38,6 +38,22 @@ def _init_easyocr(use_gpu: bool):
     return easyocr.Reader(["en"], gpu=use_gpu, verbose=False), "easyocr"
 
 
+def reset_ocr(*, force_cpu: bool = False) -> None:
+    """Drop the global OCR backend (e.g. after CUDA OOM) and optionally force CPU."""
+    global _ocr_backend, _backend_name
+    _ocr_backend = None
+    _backend_name = None
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        pass
+    if force_cpu:
+        _ocr_backend, _backend_name = _init_easyocr(False)
+        print("[OCR] Using backend: easyocr (forced CPU)")
+
+
 def get_ocr():
     """Return the shared OCR backend, initializing on first call.
 

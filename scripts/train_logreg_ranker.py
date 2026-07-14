@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Train mandatory logistic regression ranker (interpretability diagnostic)."""
+"""Train logistic regression ranker (interpretability diagnostic).
+
+Gate metric remains coverage@K — not AUC.
+"""
 
 from __future__ import annotations
 
@@ -15,71 +18,53 @@ import joblib
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score
 from sklearn.preprocessing import StandardScaler
 
-from src.features.patch_features import extract_patch_features
-from src.utils.image_io import load_image
+from src.features.ranker_features import FEATURE_KEYS, assert_no_feature_leakage
 from src.utils.logging_utils import log_section, setup_experiment_logging
-from src.utils.ocr_cache import load_cached_ocr_boxes
-from src.utils.paths import data_path, outputs_path
+from src.utils.paths import outputs_path
 
 
-FEATURE_KEYS = [
-    "text_coverage", "text_confidence", "edge_density", "entropy",
-    "bm25", "question_overlap", "answer_type", "label_value_proximity",
-    "same_row_label_value", "below_label_relation", "patch_line_density",
-]
+def _load_dataset(path: Path | None, tag: str) -> pd.DataFrame:
+    candidates = []
+    if path is not None and str(path) and path.exists() and path.is_file():
+        candidates.append(path)
+    if tag:
+        candidates.append(outputs_path("ranker", f"ranker_dataset_{tag}.parquet"))
+    candidates.append(outputs_path("ranker", "ranker_dataset.parquet"))
+    for p in candidates:
+        if p.exists() and p.is_file():
+            return pd.read_parquet(p)
+    raise FileNotFoundError("No ranker dataset found. Run scripts/build_ranker_dataset.py first.")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Train logreg ranker (image-level split).")
-    parser.add_argument("--labels", type=Path, default=outputs_path("labels", "patch_labels.parquet"))
+    parser = argparse.ArgumentParser(description="Train logreg ranker from cached dataset.")
+    parser.add_argument("--target", choices=["strict_positive", "any_positive"], default="strict_positive")
+    parser.add_argument("--from-dataset", action="store_true", default=True)
+    parser.add_argument("--dataset", type=Path, default=None)
+    parser.add_argument("--dataset-tag", default="100", help="Tag like 100 or 500")
     parser.add_argument("--split-by", default="image_id")
-    parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
     logger = setup_experiment_logging("train_logreg")
-    log_section(logger, "Logistic regression ranker (mandatory diagnostic)")
+    log_section(logger, f"Logreg ranker | target={args.target}")
 
-    split_path = outputs_path("gates", "docvqa_ranker_split.json")
-    if not split_path.exists():
-        logger.info("Building manifests/split first...")
-        import subprocess
-        subprocess.check_call([sys.executable, "scripts/build_docvqa_manifests.py"], cwd=str(REPO_ROOT))
+    if args.split_by != "image_id":
+        raise SystemExit("--split-by must be image_id")
 
-    with open(split_path, encoding="utf-8") as f:
-        split = json.load(f)
-    val_images = set(split["val_image_ids"])
+    df = _load_dataset(args.dataset, args.dataset_tag)
+    assert_no_feature_leakage(FEATURE_KEYS)
+    missing = [k for k in FEATURE_KEYS if k not in df.columns]
+    if missing:
+        raise SystemExit(f"Dataset missing features: {missing}")
 
-    df = pd.read_parquet(args.labels)
-    if args.limit:
-        df = df.head(args.limit)
-
-    # Build feature matrix (sample subset for speed if huge)
-    X_rows, y_rows, weights = [], [], []
-    manifest_cache: dict[str, dict] = {}
-    for _, row in df.iterrows():
-        iid = row["image_id"]
-        if iid not in manifest_cache:
-            manifest_cache[iid] = {"boxes": load_cached_ocr_boxes(iid) or []}
-        # Skip full image load in bulk — use stored patch coords + fullpage OCR boxes only
-        from src.preprocessing.patch_grid import Patch
-        from PIL import Image
-
-        patch = Patch(int(row["x"]), int(row["y"]), int(row["w"]), int(row["h"]), int(row.get("patch_index", 0)))
-        # Placeholder image sized to patch bounds for edge/entropy (approximation)
-        image = Image.new("RGB", (patch.x + patch.w + 1, patch.y + patch.h + 1), "white")
-        feats = extract_patch_features(
-            image, patch, manifest_cache[iid]["boxes"], str(row.get("question", ""))
-        )
-        X_rows.append([feats.get(k, 0.0) for k in FEATURE_KEYS])
-        y_rows.append(int(row["label_positive"]))
-        weights.append(float(row.get("label_confidence", 1.0)))
-
-    X = np.array(X_rows, dtype=float)
-    y = np.array(y_rows, dtype=int)
-    w = np.array(weights, dtype=float)
-    is_val = np.array([row["image_id"] in val_images for _, row in df.iterrows()])
+    X = df[FEATURE_KEYS].to_numpy(dtype=float)
+    y = df[args.target].to_numpy(dtype=int)
+    w = df["label_confidence"].to_numpy(dtype=float) if "label_confidence" in df.columns else np.ones(len(df))
+    is_val = (df["split"] == "val").to_numpy()
 
     X_train, y_train, w_train = X[~is_val], y[~is_val], w[~is_val]
     X_val, y_val = X[is_val], y[is_val]
@@ -88,22 +73,43 @@ def main() -> None:
     X_train_s = scaler.fit_transform(X_train)
     X_val_s = scaler.transform(X_val) if len(X_val) else X_train_s
 
-    clf = LogisticRegression(C=1.0, class_weight="balanced", max_iter=1000)
-    clf.fit(X_train_s, y_train, sample_weight=w_train)
+    # Avoid class_weight*sample_weight blow-up on rare positives
+    clf = LogisticRegression(C=1.0, class_weight=None, max_iter=2000)
+    # Upsample weight for positives slightly for diagnostic balance
+    w_fit = w_train.copy()
+    pos = y_train == 1
+    if pos.any() and (~pos).any():
+        w_fit[pos] *= float((~pos).sum() / max(1, pos.sum()))
+    clf.fit(X_train_s, y_train, sample_weight=w_fit)
 
-    ckpt = outputs_path("checkpoints", "logreg.pkl")
+    short = "strict" if args.target == "strict_positive" else "any"
+    ckpt = outputs_path("checkpoints", f"logreg_{short}.pkl")
     ckpt.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump({"model": clf, "scaler": scaler, "features": FEATURE_KEYS}, ckpt)
+    joblib.dump({"model": clf, "scaler": scaler, "features": FEATURE_KEYS, "target": args.target}, ckpt)
 
-    coef_df = pd.DataFrame({
-        "feature": FEATURE_KEYS,
-        "coefficient": clf.coef_[0],
-    }).sort_values("coefficient", key=abs, ascending=False)
-    coef_out = outputs_path("metrics", "logreg_coefficients.csv")
+    coef_df = pd.DataFrame({"feature": FEATURE_KEYS, "coefficient": clf.coef_[0]}).sort_values(
+        "coefficient", key=abs, ascending=False
+    )
+    coef_out = outputs_path("metrics", f"logreg_{short}_coefficients.csv")
     coef_df.to_csv(coef_out, index=False)
 
     val_acc = float((clf.predict(X_val_s) == y_val).mean()) if len(y_val) else 0.0
-    logger.info("Saved %s | val_acc=%.3f | coefficients -> %s", ckpt, val_acc, coef_out)
+    val_auc = 0.0
+    if len(y_val) and len(np.unique(y_val)) > 1:
+        val_auc = float(roc_auc_score(y_val, clf.predict_proba(X_val_s)[:, 1]))
+    metrics = {
+        "target": args.target,
+        "val_acc": val_acc,
+        "val_auc": val_auc,
+        "n_train": int((~is_val).sum()),
+        "n_val": int(is_val.sum()),
+        "note": "AUC is diagnostic only; gate is coverage@K",
+    }
+    metrics_path = outputs_path("metrics", f"logreg_{short}_train_metrics.json")
+    with open(metrics_path, "w", encoding="utf-8") as f:
+        json.dump(metrics, f, indent=2)
+
+    logger.info("Saved %s | val_acc=%.3f val_auc=%.3f (diagnostic) | %s", ckpt, val_acc, val_auc, coef_out)
 
 
 if __name__ == "__main__":

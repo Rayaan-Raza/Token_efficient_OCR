@@ -38,14 +38,23 @@ gates:
     small_box_coverage_min: 0.90
     edge_patch_rate_min: 0.95
   g2:
-    oracle_at_2_min: 0.15
-    oracle_at_4_min: 0.30
+    oracle_evidence_at_2_min: 0.50
+    oracle_evidence_at_4_min: 0.70
+    oracle_ocr_exact_at_2_min: 0.15
+    oracle_ocr_exact_at_4_min: 0.30
   g3_min:
-    coverage_k2_min: 0.12
-    coverage_k4_min: 0.25
+    evidence_strict_k2_min: 0.20
+    evidence_any_k2_min: 0.25
+    evidence_k4_min: 0.35
+    ocr_exact_k2_report_min: 0.15
   g3_strong:
-    coverage_k2_min: 0.20
-    coverage_k4_min: 0.35
+    evidence_strict_k2_min: 0.30
+    evidence_any_k2_min: 0.40
+    evidence_k4_min: 0.50
+  g3_very_strong:
+    evidence_strict_k2_min: 0.35
+    evidence_any_k2_min: 0.50
+    evidence_k4_min: 0.60
 
 manifests:
   eval_sizes: [100, 300, 500]
@@ -69,6 +78,17 @@ ranker:
     feature_fraction: 0.8
     bagging_fraction: 0.8
     bagging_freq: 1
+    # LambdaRank
+    objective: lambdarank
+    metric: ndcg
+    ndcg_eval_at: [1, 2, 4, 8]
+    label_gain: null  # default LightGBM gains for relevance ints
+  combined:
+    strict_weight: 0.6
+    any_weight: 0.4
+  qbops_hybrid:
+    learned_weight: 0.5
+    qbops_weight: 0.5
   mlp:
     hidden: [64, 32]
     dropout: 0.1

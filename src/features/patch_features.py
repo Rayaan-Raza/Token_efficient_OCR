@@ -106,12 +106,13 @@ def extract_patch_features(
     question: str,
     *,
     include_question: bool = True,
+    layout_graph: Any | None = None,
 ) -> dict[str, float]:
     """Full feature vector for one candidate patch."""
     from src.preprocessing.patch_scoring_qa import patch_ocr_text as qa_patch_text
 
     ptext = qa_patch_text(patch, ocr_boxes)
-    graph = build_ocr_layout_graph(ocr_boxes)
+    graph = layout_graph if layout_graph is not None else build_ocr_layout_graph(ocr_boxes)
     gfeat = graph_features_for_patch(
         graph, patch.x, patch.y, patch.w, patch.h, set(question_tokens(question)) if include_question else set()
     )

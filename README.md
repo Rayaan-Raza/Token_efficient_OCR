@@ -27,6 +27,9 @@ Research pipeline for comparing document-image preprocessing methods under **equ
 | `bops` | Overview + K OCR-guided patches (merge OCR for eval) | `patches_*` |
 | `overview_only` | Global context only (VLM ablation) | `patches_0` |
 | `random` / `uniform` | Patch selection baselines (VLM ablation) | `patches_K` |
+| `qe_bops` / `qe_bops_node_pair` | Question-conditioned evidence selection (G3 track) | `patches_K` |
+
+**QE-BOPS / learned reranking (DocVQA evidence track):** See [LOGIC.md](LOGIC.md) §17. Heuristic G3 **failed/closed**. **G3-learned PASS** on docvqa_500 OOF. **G4 VLM PASS** on docvqa_100 (`lgbm_strict` OOF: ANLS +0.051 vs Q-BOPS). **G5 next:** docvqa_300 — watch **BM25-only** as headline comparator.
 
 **Fairness rules:**
 - `not_applicable=true` — method does not use this budget axis (e.g. `jpeg` + `area_0.25`); skipped, not compared
@@ -154,6 +157,26 @@ python scripts/run_full_experiment.py --phase debug --dry-run
 python scripts/run_full_experiment.py --phase pilot --real
 ```
 
+### Learned evidence ranker (post-heuristic G3)
+
+Heuristic QE-BOPS closed: Q-BOPS-fair is the strongest hand-built selector. Train a learned ranker next:
+
+```bash
+# Debug plumbing (n=100, OOF) — not for paper claims
+python scripts/build_ranker_dataset.py --manifest Data/manifests/docvqa_100.jsonl --split-by image_id
+python scripts/train_logreg_ranker.py --target strict_positive --from-dataset
+python scripts/train_lgbm_ranker.py --objective lambdarank --target strict_positive --cv 5
+python scripts/eval_learned_ranker_coverage.py \
+  --manifest Data/manifests/docvqa_100.jsonl \
+  --models lgbm_strict,lgbm_any,lgbm_combined,lgbm_qbops_hybrid \
+  --baselines bops_qa_fair_pool,qe_bops_v2,bm25_only,bops_fair_pool \
+  --k 1,2,4,8 --oof
+
+# Paper path: repeat on docvqa_500 with --final-train / --held-out
+```
+
+Gate: learned strict@K > Q-BOPS strict@K and any@K ≥ Q-BOPS any@K (same eval images). **G4 VLM PASS** on docvqa_100. **G5:** `scripts/run_g5_vlm_pilot.ps1` on docvqa_300.
+
 ---
 
 ## Repository layout
@@ -242,20 +265,24 @@ python scripts/audit_datasets.py
 
 ---
 
-## Current status (2026-07-02)
+## Current status (2026-07-15)
 
 | Component | Status |
 |-----------|--------|
 | Pipeline code | Complete |
-| Unit tests | **31/31** passing |
+| Unit tests | Passing (`python -m pytest tests/ -q`) |
+| QE-BOPS G1–G2 | **Passed** (candidate pool + oracle ceilings on docvqa_100) |
+| QE-BOPS G3 heuristic | **Failed / closed** — no QE variant beat Q-BOPS at K=2 or K=4 |
+| Learned evidence ranker | **G3-learned PASS** on docvqa_500 OOF — `lgbm_strict` +5.8pp / +6.6pp @ K=2 |
+| G4 VLM (docvqa_100, K=2) | **PASS (strong)** — ANLS 0.829 vs Q-BOPS 0.778 (+0.051) |
+| G5 VLM (docvqa_300, K=2) | **Next** — BM25-only (0.824 @ n=100) is key baseline |
 | Dataset audit | Passed (21,778 TextOCR, 500 DocVQA) |
 | Real OCR (sanity n=10 + pilot n=200) | ✅ EasyOCR GPU |
-| Real VLM (sanity n=10 + pilot n=100) | ✅ Qwen 4-bit on RTX 3050 |
+| Real VLM (G4 pilot n=100 + earlier sanity) | ✅ Qwen 4-bit on RTX 3050 |
 | OCR pilot gate | **Passed** — BOPS p8 > resize a0.25 (bootstrap CI significant) |
-| VLM pilot gate | **Inconclusive** — BOPS ≈ random; loses to uniform/resize |
-| Paper-scale runs | Not started (`experiment_stage=paper`) |
+| Paper-scale VLM | G5 n=300 then n=500 if G5 passes |
 
-**Pilot direction:** empirical study (clear OCR gains; VLM patch selection needs improvement). See [RESULTS.md](RESULTS.md) for numbers and claim boundaries.
+**Paper direction:** learned evidence reranking for budgeted Document VQA — coverage gains transfer to VLM. See [RESULTS.md](RESULTS.md).
 
 **Not implemented:** seam carving (optional Phase 12 in proposal only).
 
@@ -263,4 +290,5 @@ python scripts/audit_datasets.py
 
 ## Reference
 
-Full research proposal: `Reference/Full Research Proposal and Implementation Plan.md`
+Full research proposal: `Reference/Full Research Proposal and Implementation Plan.md`  
+QE-BOPS roadmap: `deep-research-report.md`

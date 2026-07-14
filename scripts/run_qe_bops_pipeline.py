@@ -30,6 +30,8 @@ PHASES = {
         ["python", "scripts/check_gates.py", "--gate", "G2_oracle"],
     ],
     "G3": [
+        ["python", "scripts/diagnose_coverage_gap.py", "--manifest", "MANIFEST_100"],
+        ["python", "scripts/plot_evidence_reachability.py"],
         ["python", "scripts/eval_patch_coverage.py", "--manifest", "MANIFEST_100"],
         ["python", "scripts/bootstrap_pilot_stats.py", "--metric", "coverage"],
         ["python", "scripts/check_gates.py", "--gate", "G3_heuristic"],

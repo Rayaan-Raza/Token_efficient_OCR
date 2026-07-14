@@ -47,6 +47,11 @@ def main() -> None:
         iid = _image_id(rec)
         q = rec.get("question", "")
         log_progress(logger, i + 1, len(records), iid)
+        cand_path = cand_dir / f"{iid}.json"
+        if cand_path.exists():
+            logger.info("  candidate cache hit")
+            # still refresh coverage stats if needed? skip regen
+            continue
         t0 = time.perf_counter()
         image = load_image(rec["image_path"])
         boxes = load_cached_ocr_boxes(iid) or []

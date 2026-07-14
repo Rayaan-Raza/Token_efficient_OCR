@@ -190,7 +190,15 @@ def plot_vlm_anls_methods(vlm_df: pd.DataFrame, out_path: Path) -> None:
             h = bar.get_height()
             ax.annotate(f"{h:.2f}", (bar.get_x() + bar.get_width() / 2, h), ha="center", va="bottom", fontsize=8)
 
-    labels = [m.replace("_", "\n") if m == "overview_only" else m.replace("_", " ") for m in present]
+    label_map = {
+        "resize": "resize",
+        "uniform": "uniform",
+        "bops": "BOPS",
+        "bops_qa": "Q-BOPS",
+        "overview_only": "overview-only",
+        "random": "random",
+    }
+    labels = [label_map.get(m, m) for m in present]
     ax.set_xticks(x)
     ax.set_xticklabels(labels, rotation=20, ha="right")
     ax.set_ylabel("Score")
@@ -212,6 +220,13 @@ def plot_answer_coverage_diagnostics(vlm_df: pd.DataFrame, out_path: Path) -> No
         return float(vals.fillna(False).astype(bool).mean())
 
     methods = ["bops", "bops_qa", "random", "uniform", "overview_only"]
+    label_map = {
+        "bops": "BOPS",
+        "bops_qa": "Q-BOPS",
+        "random": "random",
+        "uniform": "uniform",
+        "overview_only": "overview-only",
+    }
     present = [m for m in methods if m in set(df["method"])]
     if not present:
         present = sorted(df["method"].unique())
@@ -234,7 +249,7 @@ def plot_answer_coverage_diagnostics(vlm_df: pd.DataFrame, out_path: Path) -> No
             ax.annotate(f"{h:.0f}%", (bar.get_x() + bar.get_width() / 2, h), ha="center", va="bottom", fontsize=8)
 
     ax.set_xticks(x)
-    ax.set_xticklabels(present, rotation=15, ha="right")
+    ax.set_xticklabels([label_map.get(m, m) for m in present], rotation=15, ha="right")
     ax.set_ylim(0, 100)
     ax.set_ylabel("% samples with answer in OCR text")
     ax.set_title("Answer coverage by patch selector (DocVQA pilot, n=100, K=2)")
@@ -523,13 +538,14 @@ def plot_failure_panel(
         return
 
     n = len(panel_rows)
-    row_h = 4.8 * figsize_scale if layout == "appendix" else 3.2 * figsize_scale
-    fig, axes = plt.subplots(n, 2, figsize=(12 * figsize_scale, row_h * n))
+    row_h = 6.2 * figsize_scale if layout == "appendix" else 3.2 * figsize_scale
+    fig_w = 14.0 * figsize_scale if layout == "appendix" else 12.0 * figsize_scale
+    fig, axes = plt.subplots(n, 2, figsize=(fig_w, row_h * n))
     if n == 1:
         axes = np.array([axes])
 
-    title_size = 11 if layout == "appendix" else 9
-    caption_size = 10 if layout == "appendix" else 8
+    title_size = 13 if layout == "appendix" else 9
+    caption_size = 11 if layout == "appendix" else 8
     for row_idx, (_, row, boxes) in enumerate(panel_rows):
         _render_failure_row(
             axes[row_idx],

@@ -570,6 +570,88 @@ flowchart TB
 
 ---
 
-## 16. Mental model (one paragraph)
+## 17. Learned evidence reranking track (G1–G5)
+
+**Paper title (working):** *Learned Evidence Reranking for Budgeted Document VQA Patch Selection*
+
+**Problem shift (2026-07):** OCR-density BOPS preserves text but not answer evidence. Q-BOPS is a strong lexical baseline. Heuristic QE-BOPS rules failed at K=2/K=4. **Learned LambdaRank** over Q-BOPS + layout/entity features improves coverage@K; **G4** shows those gains transfer to VLM ANLS/EM.
+
+### Pipeline stages
+
+| Gate | What it checks | Status |
+|------|----------------|--------|
+| G1 | Candidate pool sanity | **PASS** |
+| G2 | Oracle ceilings | **PASS** |
+| G3 | Heuristic beat Q-BOPS on coverage@K | **FAILED / CLOSED** |
+| G3-learned | Learned LambdaRank beats Q-BOPS (docvqa_500 OOF) | **PASS** (`lgbm_strict` +5.8pp strict@2) |
+| G4 | VLM ANLS/EM transfer (docvqa_100, K=2, OOF inference) | **PASS (strong)** — ANLS +0.051 vs Q-BOPS |
+| G5 | VLM scale-up (docvqa_300, K=2); **BM25-only is key comparator** | **Next** |
+
+### G4 / G5 VLM fairness rules
+
+- Same candidate pool, OCR cache, K, overview, prompt, patch reading order
+- `learned_lgbm_strict`: **image-level OOF scores** from `oof_scores_strict_500.parquet` — never train on the eval image
+- No ground-truth answers at inference
+- Runtime logged per sample (`runtime_sec` in VLM CSVs)
+- Runners: `scripts/run_g4_vlm_pilot.ps1` (n=100), `scripts/run_g5_vlm_pilot.ps1` (n=300)
+
+### Selector families
+
+| Method | Paradigm |
+|--------|----------|
+| `bops_qa_fair_pool` | Q-BOPS: question-aware patch scoring + MMR |
+| `qe_bops` / `qe_bops_v2` | Patch-first heuristic (40% Q-BOPS anchor + label-value + MMR) |
+| `qe_bops_anchor_pair` | Q-BOPS slot-1 + QE slot-2 (experimental; neutral vs v2) |
+| `qe_bops_node_pair` | **v3:** OCR-node late interaction → label-value pairs → rerank fair pool |
+| `qe_bops_table_pair` | **v3.1:** OCR row clustering + tightened label-value relations + hard co-occurrence boosts; Q-anchor slot-1 |
+| `qe_bops_entity_row` | **v3.2 (final K=2):** entity/field token split, −0.40 row penalty without entity, hard co-occurrence boosts |
+| `learned_lgbm_*` / `lgbm_qbops_hybrid` | **Post-heuristic:** LightGBM LambdaRank over Q-BOPS + layout/entity features; hybrid with Q-BOPS score |
+
+**Heuristic track closed (2026-07-14):** No QE variant beat Q-BOPS at K=2 or K=4. **Winning method:** `learned_lgbm_strict` with OOF inference. Paper claims: coverage on docvqa_500 OOF; VLM on docvqa_100 (G4 PASS) → docvqa_300 (G5).
+
+### Learned ranker inference (`learned_lgbm_strict`)
+
+**Module:** `src/preprocessing/selectors.py` → `_load_oof_score_map` + `_select_learned_ranker`
+
+1. Build same fair candidate pool as Q-BOPS.
+2. Look up **OOF patch scores** for `image_id` from `outputs/ranker/oof_scores_strict_500.parquet`.
+3. Plain top-K (no MMR) — matches coverage eval protocol.
+4. Fallback to checkpoint only if OOF missing (not used for G4/G5 claims).
+
+### QE-BOPS v3 (`qe_bops_node_pair`) — historical / closed
+
+**Module:** `src/preprocessing/qe_bops_node_pair.py`
+
+1. **Score OCR nodes** — late interaction (per-question-token max token similarity), BM25, answer-type, label/value classification.
+2. **Enumerate label-value pairs** — layout graph relations (`same_row`, `nearby_right`, `nearby_below`, `same_column`).
+3. **Rerank fair-pool patches** — each patch scored by best supporting node pair + Q-BOPS anchor + late interaction on patch OCR text.
+4. **Select K=2** — slot-1 may be Q-BOPS anchor if it beats node score; slot-2 is best non-redundant evidence patch.
+
+**Metrics (tiered evidence):**
+
+- `evidence_strict@K` — exact patch OCR or full-page box overlap
+- `evidence_any@K` — strict ∪ soft token ∪ fuzzy
+- `ocr_exact@K` — answer string in selected patch OCR
+
+### Key modules
+
+| File | Role |
+|------|------|
+| `src/features/ocr_layout_graph.py` | OCR nodes + spatial edges |
+| `src/preprocessing/qe_bops_scoring.py` | Patch heuristic v1/v2 |
+| `src/preprocessing/qe_bops_node_pair.py` | Node-pair evidence retrieval |
+| `src/preprocessing/selectors.py` | Fair selector registry |
+| `src/metrics/coverage_eval.py` | Tiered evidence evaluation |
+| `src/metrics/gates.py` | G1–G3 + G3-learned + G5 VLM gate logic |
+| `src/features/ranker_features.py` | Learned-ranker feature keys + Q-BOPS rank features |
+| `scripts/build_ranker_dataset.py` | Cached ranking dataset (dual labels) |
+| `scripts/train_lgbm_ranker.py` | LightGBM LambdaRank (OOF + final-train) |
+| `scripts/eval_learned_ranker_coverage.py` | Coverage@K vs Q-BOPS for learned models |
+| `scripts/run_qe_bops_pipeline.py` | Staged experiment runner |
+| `scripts/mine_q_bops_miss_cases.py` | Q-hit / QE-miss failure mining |
+
+---
+
+## 18. Mental model (one paragraph)
 
 A **manifest row** points to an image and ground truth. **Preprocessing** transforms the image under a **declared budget** and records whether the budget was met and whether the method×budget pair applies. For **OCR**, transformed images (or BOPS overview+patches merged via `merge_patch_ocr`) are read by EasyOCR and scored against `ocr_gt_text`. For **VLM**, the image becomes either one downscaled frame or a **BOPS bundle** (overview + K patches), fed to Qwen with a fixed prompt template, and scored against DocVQA answer lists. **Aggregates and plots** exclude `not_applicable`, `invalid_budget`, and `dry_run` rows; paper tables require `experiment_stage ∈ {pilot, paper}`. **Pilot findings:** BOPS `patches_8` significantly beats resize at low budget on OCR word recall, but VLM patch selection frequently misses answer regions — do not claim VLM wins until selection improves.

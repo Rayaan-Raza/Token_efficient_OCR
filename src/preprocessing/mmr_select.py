@@ -17,6 +17,10 @@ def _iou(a: Patch, b: Patch) -> float:
     return inter / max(1, union)
 
 
+def patch_iou(a: Patch, b: Patch) -> float:
+    return _iou(a, b)
+
+
 def mmr_select(
     patches: list[Patch],
     scores: list[float],

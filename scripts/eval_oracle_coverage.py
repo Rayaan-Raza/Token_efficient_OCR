@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compute oracle answer coverage@K (diagnostic upper bound)."""
+"""Compute oracle_ocr_exact@K and oracle_evidence@K ceilings."""
 
 from __future__ import annotations
 
@@ -16,7 +16,13 @@ sys.path.insert(0, str(REPO_ROOT))
 import pandas as pd
 
 from src.data.dataset_loader import iter_manifest
-from src.metrics.answer_coverage import answer_in_selected_patches, oracle_select_patches, patch_from_dict
+from src.metrics.answer_coverage import (
+    answer_in_selected_patches,
+    evidence_in_selected,
+    oracle_select_patches,
+    patch_from_dict,
+    pool_reachability_rates,
+)
 from src.utils.logging_utils import log_section, setup_experiment_logging
 from src.utils.paths import outputs_path
 
@@ -32,8 +38,17 @@ def _answers(record: dict) -> list[str]:
     return list(ans)
 
 
+def _patch_texts_for_indices(iid: str, selected_indices: set[int]) -> list[str]:
+    path = outputs_path("ocr", "patches", f"{iid}.json")
+    if not path.exists():
+        return []
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    return [p.get("text", "") for p in data["patches"] if p.get("index") in selected_indices]
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Oracle coverage@K analysis.")
+    parser = argparse.ArgumentParser(description="Oracle OCR-exact and evidence coverage@K.")
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--k", default="1,2,4,8")
     parser.add_argument("--limit", type=int, default=0)
@@ -41,7 +56,7 @@ def main() -> None:
 
     logger = setup_experiment_logging("oracle_coverage")
     ks = [int(x) for x in args.k.split(",")]
-    log_section(logger, f"Oracle coverage | K={ks}")
+    log_section(logger, f"Oracle ceilings | K={ks}")
 
     labels_path = outputs_path("labels", "patch_labels.parquet")
     if not labels_path.exists():
@@ -53,47 +68,60 @@ def main() -> None:
     if args.limit:
         records = records[: args.limit]
 
-    hits: dict[int, list[bool]] = defaultdict(list)
+    ocr_hits: dict[int, list[bool]] = defaultdict(list)
+    evidence_hits: dict[int, list[bool]] = defaultdict(list)
+    pool_rows: list[dict[str, bool]] = []
 
     for rec in records:
-        qid = rec.get("question_id", "")
         iid = _image_id(rec)
         answers = _answers(rec)
-        sub = df[(df["question_id"] == qid) & (df["image_id"] == iid)]
+        sub = df[df["image_id"] == iid]
         if sub.empty:
             continue
         patches = [patch_from_dict(r) for _, r in sub.iterrows()]
         labels = [r.to_dict() for _, r in sub.iterrows()]
+        pool_rows.append(pool_reachability_rates(labels))
+
         for k in ks:
             selected = oracle_select_patches(patches, labels, k)
             sel_idx = {p.index for p in selected}
-            texts = [str(r["text"]) if "text" in r else "" for _, r in sub.iterrows() if r["patch_index"] in sel_idx or r["index"] in sel_idx]
-            # fallback: use patch OCR from labels join
-            texts = []
-            for _, r in sub.iterrows():
-                p = patch_from_dict(r)
-                if p.index in sel_idx or int(r.get("patch_index", -1)) in sel_idx:
-                    patch_ocr_path = outputs_path("ocr", "patches", f"{iid}.json")
-                    if patch_ocr_path.exists():
-                        with open(patch_ocr_path, encoding="utf-8") as f:
-                            pdata = json.load(f)
-                        for po in pdata["patches"]:
-                            if po.get("index") == p.index:
-                                texts.append(po.get("text", ""))
-            hits[k].append(answer_in_selected_patches(answers, texts))
+            texts = _patch_texts_for_indices(iid, sel_idx)
+            ocr_hits[k].append(answer_in_selected_patches(answers, texts))
+            evidence_hits[k].append(evidence_in_selected(labels, sel_idx))
 
     rows = []
     for k in ks:
-        cov = sum(hits[k]) / len(hits[k]) if hits[k] else 0.0
-        rows.append({"k": k, "oracle_coverage": cov, "n": len(hits[k])})
-        logger.info("oracle@%d = %.3f (n=%d)", k, cov, len(hits[k]))
+        n = len(ocr_hits[k])
+        ocr_cov = sum(ocr_hits[k]) / n if n else 0.0
+        ev_cov = sum(evidence_hits[k]) / n if n else 0.0
+        rows.append({
+            "k": k,
+            "oracle_ocr_exact": ocr_cov,
+            "oracle_evidence": ev_cov,
+            "n": n,
+        })
+        logger.info("oracle_ocr_exact@%d = %.3f | oracle_evidence@%d = %.3f (n=%d)", k, ocr_cov, k, ev_cov, n)
 
     out = outputs_path("metrics", "oracle_coverage_by_k.csv")
     with open(out, "w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=["k", "oracle_coverage", "n"])
+        w = csv.DictWriter(f, fieldnames=["k", "oracle_ocr_exact", "oracle_evidence", "n"])
         w.writeheader()
         w.writerows(rows)
     logger.info("Wrote %s", out)
+
+    if pool_rows:
+        reach = {
+            key: sum(1 for r in pool_rows if r[key]) / len(pool_rows)
+            for key in pool_rows[0].keys()
+        }
+        reach_out = outputs_path("metrics", "candidate_reachability.csv")
+        with open(reach_out, "w", encoding="utf-8", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=["metric", "rate", "n"])
+            w.writeheader()
+            for metric, rate in reach.items():
+                w.writerow({"metric": metric, "rate": rate, "n": len(pool_rows)})
+                logger.info("%s = %.3f", metric, rate)
+        logger.info("Wrote %s", reach_out)
 
 
 if __name__ == "__main__":

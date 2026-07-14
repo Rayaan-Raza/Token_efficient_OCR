@@ -58,6 +58,8 @@ QE_BOPS_METHODS = {
     "bops_fair_pool", "bops_qa_fair_pool", "bops_original", "qe_bops", "qe_bops_no_question",
     "ocr_confidence_topk", "bm25_only", "question_overlap_topk", "answer_type_only",
     "multiscale_uniform", "edge_strip",
+    "learned_logreg", "learned_lgbm_strict", "learned_lgbm_any",
+    "learned_lgbm_combined", "learned_lgbm_qbops_hybrid",
 }
 
 
@@ -74,8 +76,14 @@ def _run_qe_bops_vlm(
 ) -> tuple[Any, list[Any], dict[str, Any]]:
     """Run fair-pool selector + overview for VLM input."""
     question = record.get("question", "")
-    boxes = load_cached_ocr_boxes(record["image_id"]) or []
-    sel = select_patches(image, method, num_patches, question, boxes, seed=seed)
+    image_id = str(record["image_id"])
+    boxes = load_cached_ocr_boxes(image_id) or []
+    sel = select_patches(
+        image, method, num_patches, question, boxes, seed=seed,
+        image_id=image_id,
+        question_id=str(record.get("question_id") or record.get("qid") or "") or None,
+        prefer_oof=True,
+    )
     overview, _ = generate_overview(image, 1_048_576)
     patch_images = []
     for p in _sort_reading_order(sel.patches):
@@ -239,6 +247,8 @@ def main() -> None:
             "bops_fair_pool", "bops_qa_fair_pool", "bops_original", "qe_bops", "qe_bops_no_question",
             "ocr_confidence_topk", "bm25_only", "question_overlap_topk", "answer_type_only",
             "multiscale_uniform", "edge_strip",
+            "learned_logreg", "learned_lgbm_strict", "learned_lgbm_any",
+            "learned_lgbm_combined", "learned_lgbm_qbops_hybrid",
         ],
     )
     parser.add_argument("--num-patches", type=int, default=4, help="Patch budget for patch modes")

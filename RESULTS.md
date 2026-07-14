@@ -2,14 +2,186 @@
 
 Living log of dataset audits, preprocessing checks, OCR metrics, VLM QA scores, and method comparisons.
 
-**Last updated:** 2026-07-02  
-**Pipeline status:** Pilot complete — OCR n=200 (TextOCR) + VLM n=100 (DocVQA), real EasyOCR GPU + real Qwen. **Pilot results, not final paper results.**  
+**Last updated:** 2026-07-15  
+**Pipeline status:** G3-learned **PASS** (docvqa_500 OOF); **G4 VLM PASS** (docvqa_100 @ K=2); **G5 next** (docvqa_300 @ K=2 — key comparator is **BM25-only**, not just Q-BOPS).  
+**Paper title (working):** *Learned Evidence Reranking for Budgeted Document VQA Patch Selection*  
 **GPU:** NVIDIA GeForce RTX 3050 Laptop GPU · PyTorch `2.12.1+cu126`  
-**Unit tests:** 31/31 passing (`python -m pytest tests/ -q`)
-
-> **Pilot verdict:** OCR gate **passed with statistical significance** (BOPS `patches_8` beats strict resize, bootstrap CI excludes 0). VLM is **inconclusive** — BOPS beats random on the mean but the CI crosses 0, and BOPS does not beat `uniform` or `resize`. Direction is an **empirical study** (clear OCR gains, VLM not a win) unless patch scoring is improved. Do **not** claim "BOPS improves VLM performance."
+**Unit tests:** passing (`python -m pytest tests/ -q`)
 
 ---
+
+## QE-BOPS coverage gate (G3, docvqa_100, K=2)
+
+**Gate rule:** `qe_bops` must beat Q-BOPS-fair on both `evidence_strict@2` and `evidence_any@2`, beat BOPS/BM25/OCR-confidence/uniform, and have bootstrap mean diff vs Q-BOPS ≥ 0.
+
+| Method | strict@2 | any@2 | ocr_exact@2 | vs Q-BOPS |
+|--------|----------|-------|-------------|-----------|
+| `bops_qa_fair_pool` (Q-BOPS) | **0.26** | **0.33** | 0.12 | baseline |
+| `qe_bops` v2 | 0.23 | 0.32 | 0.13 | **FAIL** (−3pp strict, −1pp any) |
+| `qe_bops_safe_expand` | 0.24 | 0.31 | 0.11 | FAIL |
+| `qe_bops_anchor_pair` | 0.23 | 0.32 | 0.11 | FAIL (neutral vs v2) |
+| `qe_bops_node_pair` v3 | 0.22 | 0.28 | 0.09 | FAIL |
+| `qe_bops_table_pair` (margin=0.08) | 0.22 | 0.27 | 0.11 | FAIL |
+| `qe_bops_entity_row` (margin=0.05) | 0.23 | 0.28 | 0.11 | FAIL (final K=2 attempt) |
+| random (fixed) | 0.05 | 0.07 | 0.03 | — |
+
+**Diagnosis:** Gap is top-2 precision, not pool recall. K=2 structural tuning stopped after entity_row.
+
+**G4 VLM:** Do not run until a QE-BOPS variant clearly beats Q-BOPS on coverage at the chosen K.
+
+---
+
+## K=4 auxiliary coverage (docvqa_100) — FAIL
+
+**Pass rule:** QE strict@4 > Q-BOPS strict@4; QE any@4 ≥ Q-BOPS any@4; beat BM25/BOPS/uniform/OCR-confidence; bootstrap mean diff vs Q-BOPS ≥ 0.
+
+Artifacts: `outputs/metrics/coverage_by_method_k4.csv`, `coverage_per_question_k4.csv`, `paper/tables/coverage_bootstrap_ci_k4.csv`.
+
+| Method | strict@4 | any@4 | ocr_exact@4 | vs Q-BOPS |
+|--------|----------|-------|-------------|-----------|
+| `bops_qa_fair_pool` (Q-BOPS) | **0.35** | **0.45** | 0.20 | baseline (hits “good” bar alone) |
+| `qe_bops_v2` | 0.31 | 0.42 | 0.19 | **FAIL** (−4pp strict, −3pp any) |
+| `qe_bops_entity_row` | 0.33 | 0.40 | 0.21 | FAIL |
+| `qe_bops_node_pair` | 0.29 | 0.36 | 0.15 | FAIL |
+| `qe_bops_table_pair` | 0.25 | 0.30 | 0.14 | FAIL |
+| `bm25_only` | 0.27 | 0.39 | 0.13 | — |
+| `bops_fair_pool` | 0.23 | 0.27 | 0.12 | — |
+| `ocr_confidence_topk` | 0.19 | 0.30 | 0.16 | — |
+| `uniform` | 0.03 | 0.13 | 0.00 | — |
+| `random` (seeds 0–9) | 0.09 | 0.12 | 0.06 | — |
+
+**Bootstrap (`qe_bops_v2` − Q-BOPS @ K=4):** strict mean_diff=**−0.04** (CI [−0.11, +0.03]); any mean_diff=**−0.03** (CI [−0.12, +0.06]). Mean diffs vs Q-BOPS are **negative** → fail rule 4.
+
+Targets not met for QE: good bar was strict≥0.35 / any≥0.45; strong was ≥0.40 / ≥0.50. Q-BOPS itself sits at the good bar; no QE variant reaches it.
+
+---
+
+## K sweep curves (1,2,3,4,6,8)
+
+Artifact: `outputs/metrics/coverage_by_method_k_sweep.csv`.
+
+| K | Q-BOPS strict/any | QE-v2 strict/any | entity_row strict/any | Notes |
+|---|-------------------|------------------|----------------------|-------|
+| 1 | 0.14 / 0.20 | 0.14 / 0.20 | 0.14 / 0.20 | tie |
+| 2 | **0.26 / 0.33** | 0.23 / 0.32 | 0.23 / 0.28 | Q-BOPS wins |
+| 3 | **0.30 / 0.38** | 0.28 / 0.38 | 0.30 / 0.37 | Q-BOPS ≥ |
+| 4 | **0.35 / 0.45** | 0.31 / 0.42 | 0.33 / 0.40 | Q-BOPS wins |
+| 6 | 0.37 / 0.50 | 0.37 / 0.51 | **0.38** / 0.46 | v2: tie strict, +1pp any; ER: +1pp strict, −4pp any |
+| 8 | 0.40 / 0.55 | **0.41** / 0.55 | **0.44** / 0.54 | v2: +1pp strict, tie any; ER: +4pp strict, −1pp any |
+
+**Interpretation (decision tree):**
+1. **K=4:** QE does **not** beat Q-BOPS → do **not** reframe the paper around K=4; do **not** run gated VLM @ K=4.
+2. **K=8:** Only a marginal v2 edge (+1pp strict, tie any). That is “better deep recall / weak efficiency,” **not** strong enough for the main method claim at a budgeted K.
+3. **Neither K=4 nor a clear joint win at K=8** → **heuristic QE-BOPS track closed.** Q-BOPS-fair is the strongest hand-built selector at budgeted K.
+
+### Paper framing (updated)
+
+This is no longer “QE-BOPS heuristic improves evidence selection.” It is:
+
+**A controlled study and learned reranking approach for budgeted evidence selection in Document VQA.**
+
+Contributions:
+1. OCR-density BOPS fails because evidence selection is harder than OCR preservation.
+2. Q-BOPS is a strong lexical baseline at K=2/K=4.
+3. Learned evidence ranker (LightGBM LambdaRank) using Q-BOPS + OCR late-interaction + layout/table/entity features.
+4. Evaluate whether learned ranking beats hand-built selectors under fixed K.
+
+**Next:** train learned ranker — debug on `docvqa_100` (OOF), claims on `docvqa_500` (held-out images). **G4 VLM remains blocked** until learned coverage@K beats Q-BOPS on both strict and any **on the paper path (docvqa_500 held-out)**.
+
+---
+
+## Learned evidence ranker — debug OOF (docvqa_100)
+
+**Protocol:** 5-fold image-level OOF LambdaRank; gate on coverage@K (plain top-K, no MMR). **Not for paper claims** — too small; rerun on `docvqa_500` with `--final-train` / `--held-out`.
+
+Artifacts: `outputs/ranker/ranker_dataset_100.parquet`, `outputs/metrics/learned_coverage_by_method.csv`, `outputs/gates/learned_ranker_gate.json`.
+
+| Method | strict@2 | any@2 | strict@4 | any@4 |
+|--------|----------|-------|----------|-------|
+| `bops_qa_fair_pool` (Q-BOPS) | 0.26 | 0.33 | 0.35 | 0.45 |
+| `lgbm_strict` (OOF) | **0.39** | **0.47** | 0.43 | 0.55 |
+| `lgbm_any` (OOF) | 0.37 | 0.45 | **0.51** | **0.63** |
+| `lgbm_combined` (OOF) | 0.38 | 0.46 | 0.48 | 0.59 |
+| `lgbm_qbops_hybrid` (OOF) | **0.42** | **0.52** | 0.45 | 0.57 |
+| `logreg_strict` (diagnostic) | 0.13 | 0.14 | 0.21 | 0.22 |
+| `qe_bops_v2` | 0.23 | 0.32 | 0.31 | 0.42 |
+| `bm25_only` | 0.15 | 0.22 | 0.27 | 0.39 |
+| `bops_fair_pool` | 0.12 | 0.15 | 0.23 | 0.27 |
+
+**Debug gate:** all LGBM variants and hybrid **PASS** vs Q-BOPS at K=2 and K=4 on this OOF setup (`G3_learned` PASS for `lgbm_combined`). Bootstrap mean_diff vs Q-BOPS positive.
+
+**Caveats:** (1) n=100 only; (2) learned uses plain top-K while Q-BOPS uses MMR; (3) superseded by docvqa_500 OOF below for paper gate.
+
+---
+
+## Learned evidence ranker — docvqa_500 image-level OOF (paper gate)
+
+**Protocol:** 5-fold CV by `image_id` (every image scored by a model that never trained on it). Lean eval: learned methods + `bops_qa_fair_pool` (secondary baselines skipped after hung `qe_bops_v2` run). Artifacts: `outputs/metrics/learned_coverage_by_method_500.csv`, `coverage_bootstrap_ci_learned.json`, `outputs/gates/learned_ranker_gate.json`.
+
+| Method | strict@2 | any@2 | Δstrict | Δany | strict@4 | any@4 |
+|--------|----------|-------|---------|------|----------|-------|
+| `bops_qa_fair_pool` (Q-BOPS) | 0.406 | 0.492 | — | — | 0.480 | 0.598 |
+| `lgbm_strict` (OOF) | **0.464** | **0.558** | **+0.058** | **+0.066** | 0.534 | 0.656 |
+| `lgbm_any` (OOF) | 0.446 | 0.566 | +0.040 | +0.074 | 0.518 | 0.648 |
+| `lgbm_combined` (OOF) | 0.452 | 0.552 | +0.046 | +0.060 | **0.540** | **0.662** |
+| `lgbm_qbops_hybrid` (OOF) | 0.438 | 0.528 | +0.032 | +0.036 | 0.518 | 0.644 |
+
+**Bootstrap @ K=2 vs Q-BOPS (n=500 pairs):** all four learned variants have mean_diff > 0 and **ci_low > 0** on both strict and any (e.g. `lgbm_strict` strict +0.058 CI [0.020, 0.094]).
+
+**G3_learned:** **PASS** (headline `lgbm_combined` @ K=2: 0.452 / 0.552 vs 0.406 / 0.492). Strong bar (~+0.05) met by **`lgbm_strict`**.
+
+**Winning method for G4 VLM:** `lgbm_strict` (or `learned_lgbm_strict`) at **K=2**. Prefer Option B inference (train on train images / OOF score for that image — never train on the eval image).
+
+---
+
+## G4 VLM — lean pilot (docvqa_100, K=2, OOF lgbm_strict)
+
+**Protocol:** Qwen2.5-VL-3B-Instruct; same pool/OCR/K/overview/prompt; `learned_lgbm_strict` uses **image-level OOF scores** from `oof_scores_strict_500.parquet` (no same-image train). Runner: `scripts/run_g4_vlm_pilot.ps1`. Artifacts: `outputs/metrics/vlm_metrics_docvqa_100_*`, `vlm_metrics_merged.csv`, `outputs/logs/g4_vlm_pilot_20260714T234859Z.log`.
+
+| Method | n | ANLS | EM | mean runtime (s) | total runtime (s) |
+|--------|---|------|-----|------------------|-------------------|
+| `learned_lgbm_strict` (OOF) | 100 | **0.8286** | **0.72** | 4.12 | 411.7 |
+| `bm25_only` | 100 | 0.8240 | 0.71 | 3.59 | 358.8 |
+| `resize` (full-image ref) | 100 | 0.7876 | 0.68 | 3.14 | 313.8 |
+| `bops_qa_fair_pool` (Q-BOPS) | 100 | 0.7780 | 0.67 | 3.74 | 373.7 |
+| `bops_fair_pool` | 100 | 0.7698 | 0.68 | 4.27 | 427.5 |
+| `uniform` | 100 | 0.7525 | 0.69 | 3.29 | 329.0 |
+
+**Paired Δ (`lgbm_strict` − Q-BOPS):** ANLS **+0.0506**, EM **+0.05** (9 wins / 87 ties / 4 losses on ANLS).
+
+**G4 gate:** **PASS (strong)** — ANLS > Q-BOPS and EM ≥ Q-BOPS; paired Δ ANLS **+0.0506**, EM **+0.05**.
+
+**Caution (paper-critical):** `lgbm_strict` (0.829) is only **+0.005 ANLS** above `bm25_only` (0.824) on n=100. Learned ranking clearly beats Q-BOPS, resize, BOPS-fair, and uniform, but **BM25-only is the headline baseline for G5**.
+
+**Research arc (updated):**
+1. BOPS: OCR preservation ≠ answer-evidence preservation.
+2. Q-BOPS: strong lightweight lexical selector.
+3. Heuristic QE-BOPS: hand-built rules do not consistently beat Q-BOPS.
+4. Learned LambdaRank (OOF): improves strict/any coverage@2 on docvqa_500.
+5. **G4:** coverage gains **transfer to VLM** ANLS/EM on docvqa_100 — method is no longer retrieval-only.
+
+**Next (G5):** Run `scripts/run_g5_vlm_pilot.ps1` on **docvqa_300** before scaling to 500. Same fairness protocol (OOF scores, same pool/OCR/K/overview/prompt, cost logging). Bootstrap: `lgbm_strict` vs Q-BOPS, BM25, resize.
+
+---
+
+## G5 VLM — planned (docvqa_300, K=2)
+
+**Gate (minimum):**
+- `lgbm_strict` ANLS > Q-BOPS by ≥ **+0.03**
+- `lgbm_strict` EM ≥ Q-BOPS
+- `lgbm_strict` ANLS ≥ BM25-only (prefer **+0.01** or more)
+- Bootstrap mean diff vs Q-BOPS > 0
+- Cost table logged
+
+**Strong result:** ANLS +0.04–0.06 over Q-BOPS; ANLS **+0.02+** over BM25; EM +0.03+ over Q-BOPS.
+
+**Methods:** `learned_lgbm_strict`, `bm25_only`, `bops_qa_fair_pool`, `resize`, `bops_fair_pool`, `uniform`.
+
+**Paper claim if G5 holds:** A leakage-safe LightGBM LambdaRank evidence reranker improves answer-evidence selection and VLM performance under fixed K=2, outperforming OCR-density, question-aware, BM25, uniform, and resize baselines on DocVQA.
+
+---
+
+## Pilot summary (2026-07-02)
 
 ## Real sanity run (2026-07-01) — n=10, not final
 

@@ -26,7 +26,10 @@ def main() -> None:
         logger.error("Missing %s", cov_path)
         sys.exit(1)
 
-    coverage = {r["method"]: float(r["coverage"]) for r in csv.DictReader(open(cov_path, encoding="utf-8"))}
+    coverage = {
+        r["method"]: float(r.get("evidence_coverage", r.get("coverage", 0)))
+        for r in csv.DictReader(open(cov_path, encoding="utf-8"))
+    }
     anls_by_method: dict[str, list[float]] = {}
     if vlm_path.exists():
         for r in csv.DictReader(open(vlm_path, encoding="utf-8")):
@@ -48,7 +51,7 @@ def main() -> None:
         ax.scatter(cov, mean_anls, label=method)
         ax.annotate(method, (cov, mean_anls), fontsize=7)
 
-    ax.set_xlabel("answer_coverage@K")
+    ax.set_xlabel("evidence_coverage@K")
     ax.set_ylabel("ANLS")
     ax.set_title("Coverage → VLM transfer")
     ax.legend(fontsize=6, loc="best")
