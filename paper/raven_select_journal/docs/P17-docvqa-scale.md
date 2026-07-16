@@ -53,7 +53,7 @@ No gold answers, ANLS/EM, oracle routes, or gold-derived OCR flags at inference.
 | best learned selector | — | — | 3 |
 | RAVEN-Select | — | — | 3 |
 
-Status: **PENDING**
+Status: **IN PROGRESS** — DocVQA n=1000 images+OCR ready; VLM three-reader eval resumed from seeded n=500 CSVs.
 
 ## Commit
 
