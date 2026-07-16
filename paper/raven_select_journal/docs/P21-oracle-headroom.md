@@ -28,10 +28,24 @@ with the main table.
 
 Recovery ≈ (0.8053 − 0.7840) / (0.8333 − 0.7840) ≈ 0.43
 
-## Results (n=1000)
+## Results (n=500, verified)
 
-Status: **PENDING**
+| Method | ANLS | EM |
+|--------|------|----|
+| resize | 0.7840 | 0.676 |
+| RAVEN-Select | 0.8053 | 0.706 |
+| best-of-3 oracle | 0.8333 | 0.740 |
+
+- available_headroom = 0.0493
+- recovered_headroom = 0.0214
+- recovery_frac = 0.433
+
+Status: **COMPLETE** for n=500 (n=1000 pending VLM)
 
 ## Commit
 
-- TBD
+- pending in this feature commit
+
+## Results (n=1000)
+
+Status: **PENDING**

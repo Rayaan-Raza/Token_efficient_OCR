@@ -1,0 +1,204 @@
+{
+  "n": 500,
+  "metrics_tag": "",
+  "methods": [
+    "resize",
+    "bm25",
+    "ler_bops"
+  ],
+  "oracle": {
+    "anls": 0.8332831548581507,
+    "em": 0.74,
+    "route_counts": {
+      "resize": 455,
+      "bm25": 32,
+      "ler_bops": 13
+    }
+  },
+  "resize": {
+    "anls": 0.7839559800259192,
+    "em": 0.676
+  },
+  "raven_select_rule": {
+    "n": 500,
+    "variant": "raven_select",
+    "method": {
+      "method_id": "raven_select",
+      "method_version": "1.0.0",
+      "method_name": "RAVEN-Select",
+      "readers": [
+        "resize",
+        "bm25",
+        "ler_bops"
+      ],
+      "tie_break_order": [
+        "resize",
+        "bm25",
+        "ler_bops"
+      ],
+      "normalization": "conservative_lowercase_punct_ws",
+      "grounding": "page_or_route_patch_ocr_substring",
+      "selection": "shortest_ocr_grounded_else_shortest_nonempty",
+      "vlm_calls": 3,
+      "production_flags": {
+        "use_ocr": true,
+        "use_length": true,
+        "use_answer_type": false,
+        "use_consensus": false
+      },
+      "leakage_excluded": [
+        "gold_answer",
+        "anls_to_gold",
+        "em_to_gold",
+        "answer_in_full_image_ocr",
+        "answer_in_selected_patch_ocr",
+        "oracle_route"
+      ],
+      "role": "production",
+      "comparator_model": "raven_select_rule"
+    },
+    "method_version": "1.0.0",
+    "vlm_calls": 3,
+    "model": "raven_select_rule",
+    "methods": [
+      "resize",
+      "bm25",
+      "ler_bops"
+    ],
+    "drop_groups": [],
+    "anls": 0.8053201504351432,
+    "em": 0.706,
+    "route_counts": {
+      "resize": 453,
+      "bm25": 35,
+      "ler_bops": 12
+    },
+    "baselines": {
+      "resize": {
+        "anls": 0.7839559800259192,
+        "em": 0.676,
+        "route_counts": {
+          "resize": 500,
+          "bm25": 0,
+          "ler_bops": 0
+        }
+      },
+      "bm25": {
+        "anls": 0.7554625881131919,
+        "em": 0.658,
+        "route_counts": {
+          "resize": 0,
+          "bm25": 500,
+          "ler_bops": 0
+        }
+      },
+      "ler_bops": {
+        "anls": 0.7543372052723516,
+        "em": 0.654,
+        "route_counts": {
+          "resize": 0,
+          "bm25": 0,
+          "ler_bops": 500
+        }
+      },
+      "shortest_nonempty": {
+        "anls": 0.7965057713501759,
+        "em": 0.688,
+        "route_counts": {
+          "resize": 462,
+          "bm25": 28,
+          "ler_bops": 10
+        }
+      },
+      "majority": {
+        "anls": 0.7639986179077413,
+        "em": 0.664,
+        "route_counts": {
+          "resize": 428,
+          "bm25": 72,
+          "ler_bops": 0
+        }
+      },
+      "resize_default": {
+        "anls": 0.7839559800259192,
+        "em": 0.676,
+        "route_counts": {
+          "resize": 500,
+          "bm25": 0,
+          "ler_bops": 0
+        }
+      },
+      "bm25_default": {
+        "anls": 0.7554625881131919,
+        "em": 0.658,
+        "route_counts": {
+          "resize": 0,
+          "bm25": 500,
+          "ler_bops": 0
+        }
+      },
+      "answer_type_shortest": {
+        "anls": 0.7975532311367661,
+        "em": 0.688,
+        "route_counts": {
+          "resize": 462,
+          "bm25": 29,
+          "ler_bops": 9
+        }
+      },
+      "ocr_present_shortest": {
+        "anls": 0.8053201504351432,
+        "em": 0.706,
+        "route_counts": {
+          "resize": 453,
+          "bm25": 35,
+          "ler_bops": 12
+        }
+      },
+      "consensus_first": {
+        "anls": 0.768848181066338,
+        "em": 0.666,
+        "route_counts": {
+          "resize": 416,
+          "bm25": 79,
+          "ler_bops": 5
+        }
+      },
+      "raven_select_rule": {
+        "anls": 0.8053201504351432,
+        "em": 0.706,
+        "route_counts": {
+          "resize": 453,
+          "bm25": 35,
+          "ler_bops": 12
+        }
+      }
+    },
+    "vs_resize": {
+      "delta": 0.021364170409224052,
+      "ci95": [
+        0.006171942522463533,
+        0.038021892067078275
+      ],
+      "ci_lower_positive": true
+    },
+    "vs_shortest_nonempty": {
+      "delta": 0.00881437908496732,
+      "ci95": [
+        0.0022886928104575164,
+        0.01726813725490196
+      ],
+      "ci_lower_positive": true
+    },
+    "beats_resize": true,
+    "beats_shortest_nonempty": true,
+    "target_anls_met": true,
+    "target_em_met": true,
+    "feature_keys": [],
+    "p14_pass": true,
+    "p15_pass": true
+  },
+  "available_headroom": 0.04932717483223159,
+  "recovered": 0.021364170409224004,
+  "recovery_frac": 0.4331115755541736
+}
