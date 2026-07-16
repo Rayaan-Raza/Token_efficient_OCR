@@ -52,6 +52,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Build QE-BOPS DocVQA manifests.")
     parser.add_argument("--source", type=Path, default=data_path("manifests", "docvqa_val_500.jsonl"))
     parser.add_argument("--sizes", type=int, nargs="+", default=[100, 300, 500])
+    parser.add_argument(
+        "--include-source-tag",
+        action="store_true",
+        help="Also write a nested manifest whose size equals the source row count.",
+    )
     parser.add_argument("--ranker-val-fraction", type=float, default=0.2)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
@@ -69,6 +74,14 @@ def main() -> None:
         out = data_path("manifests", f"docvqa_{n}.jsonl")
         build_subset(args.source, out, n)
         logger.info("Wrote %s (%d rows)", out, min(n, len(source_rows)))
+
+    if args.include_source_tag or len(source_rows) not in set(args.sizes):
+        # When scaling beyond the default sizes, also materialize the full source slice.
+        n_src = len(source_rows)
+        if n_src not in set(args.sizes):
+            out = data_path("manifests", f"docvqa_{n_src}.jsonl")
+            build_subset(args.source, out, n_src)
+            logger.info("Wrote source-sized subset %s (%d rows)", out, n_src)
 
     train_rows, val_rows, audit = build_ranker_split(source_rows, args.ranker_val_fraction, args.seed)
     train_out = data_path("manifests", "docvqa_ranker_train.jsonl")

@@ -7,7 +7,12 @@ import argparse
 import json
 
 from src.answer_selection.dataset import build_long_table
-from src.answer_selection.evaluate import write_p14_gate, write_p15_gate, write_select_summary
+from src.answer_selection.evaluate import (
+    write_p14_gate,
+    write_p15_gate,
+    write_p17_gate,
+    write_select_summary,
+)
 from src.answer_selection.ocr_presence import build_ocr_presence_cache
 from src.answer_selection.train import evaluate_selector
 from src.utils.logging_utils import setup_experiment_logging
@@ -22,7 +27,7 @@ def main() -> None:
     p.add_argument("--metrics-tag", default="")
     p.add_argument("--models", default=",".join(MODELS))
     p.add_argument("--rebuild-ocr", action="store_true")
-    p.add_argument("--write-gates", action="store_true", help="Write P14/P15 for best model (n=500)")
+    p.add_argument("--write-gates", action="store_true", help="Write P14/P15 (n=500) and P17 scale gates")
     args = p.parse_args()
 
     logger = setup_experiment_logging("raven_select_eval")
@@ -97,6 +102,8 @@ def main() -> None:
 
     overview = {
         "n": args.n,
+        "method": (best or {}).get("method") if best else None,
+        "method_version": (best or {}).get("method_version") if best else None,
         "best_model": best["model"] if best else None,
         "best_anls": best["anls"] if best else None,
         "best_em": best["em"] if best else None,
@@ -118,13 +125,18 @@ def main() -> None:
     if gate_winner is None:
         gate_winner = best
 
-    if args.write_gates and gate_winner and args.n == 500:
-        write_p14_gate(gate_winner)
-        write_p15_gate(gate_winner)
-        overview["gate_model"] = gate_winner["model"]
-        overview["gate_anls"] = gate_winner["anls"]
-        overview["p14_pass"] = gate_winner.get("p14_pass")
-        overview["p15_pass"] = gate_winner.get("p15_pass")
+    if args.write_gates and gate_winner:
+        if args.n == 500:
+            write_p14_gate(gate_winner)
+            write_p15_gate(gate_winner)
+            overview["gate_model"] = gate_winner["model"]
+            overview["gate_anls"] = gate_winner["anls"]
+            overview["p14_pass"] = gate_winner.get("p14_pass")
+            overview["p15_pass"] = gate_winner.get("p15_pass")
+        p17 = write_p17_gate(gate_winner, n=args.n)
+        overview["p17_status"] = p17.metrics.get("status")
+        overview["p17_pass"] = p17.passed
+        overview_path.write_text(json.dumps(overview, indent=2), encoding="utf-8")
 
     print(json.dumps({k: v for k, v in overview.items()}, indent=2))
     logger.info(
