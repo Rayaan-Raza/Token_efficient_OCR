@@ -47,8 +47,19 @@ No qualitative-only soft pass.
 
 ## Results
 
-Status: **PENDING**
+## Answer-type results (n=500)
 
-## Commit
+| Answer type | Support | resize ANLS | shortest ANLS | RAVEN-Select ANLS |
+|-------------|---------|-------------|---------------|-------------------|
+| address/location | 15 | 0.7999 | 0.7999 | 0.7999 |
+| amount/currency | 21 | 0.7513 | 0.7632 | 0.7632 |
+| date | 67 | 0.9022 | 0.9022 | 0.9082 |
+| id/code | 9 | 0.7556 | 0.8208 | 0.8208 |
+| number | 37 | 0.8822 | 0.8808 | 0.9078 |
+| organization | 14 | 0.6587 | 0.7432 | 0.7432 |
+| person/name | 113 | 0.7794 | 0.7831 | 0.8031 |
+| phrase/other | 224 | 0.7456 | 0.7630 | 0.7663 |
 
-- TBD
+Taxonomy review sheet: `outputs/labels/raven_select_taxonomy_review_n500.jsonl` (100 cases, labels blank for manual review).
+
+Status: **PARTIAL** — answer types COMPLETE; manual taxonomy labels PENDING.
