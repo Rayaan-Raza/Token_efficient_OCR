@@ -27,7 +27,10 @@ readers and 3-call selectors, with OCR/cache assumptions stated.
 
 ## Results (scaled)
 
-Status: **PENDING**
+Status: **COMPLETE** for n=500 (scaled pending)
+
+Artifact: `outputs/metrics/raven_select_cost_n500.json`
+
 
 ## Commit
 

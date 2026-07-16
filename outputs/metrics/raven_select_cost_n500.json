@@ -1,0 +1,61 @@
+{
+  "n": 500,
+  "metrics_tag": "",
+  "rows": [
+    {
+      "method": "resize",
+      "vlm_calls": 1,
+      "visual_inputs": "1 resized page",
+      "median_runtime_sec": 2.514,
+      "anls": 0.784,
+      "em": 0.676,
+      "n": 500
+    },
+    {
+      "method": "bm25",
+      "vlm_calls": 1,
+      "visual_inputs": "overview + K=2 patches",
+      "median_runtime_sec": 2.671,
+      "anls": 0.7555,
+      "em": 0.658,
+      "n": 500
+    },
+    {
+      "method": "ler_bops",
+      "vlm_calls": 1,
+      "visual_inputs": "overview + K=2 patches",
+      "median_runtime_sec": 3.519,
+      "anls": 0.7543,
+      "em": 0.654,
+      "n": 500
+    },
+    {
+      "method": "shortest_nonempty",
+      "vlm_calls": 3,
+      "visual_inputs": "all three paths",
+      "median_runtime_sec": 8.705,
+      "anls": 0.7965,
+      "em": 0.688,
+      "n": 500
+    },
+    {
+      "method": "raven_select_rule",
+      "vlm_calls": 3,
+      "visual_inputs": "all three paths",
+      "median_runtime_sec": 8.705,
+      "anls": 0.8053,
+      "em": 0.706,
+      "n": 500
+    },
+    {
+      "method": "best_learned",
+      "vlm_calls": 3,
+      "visual_inputs": "all three paths",
+      "median_runtime_sec": 8.705,
+      "anls": 0.8053,
+      "em": 0.706,
+      "n": 500
+    }
+  ],
+  "runtime_note": "3-call methods use the sum of per-path median runtimes (approximate, not accounting for overlap)."
+}
