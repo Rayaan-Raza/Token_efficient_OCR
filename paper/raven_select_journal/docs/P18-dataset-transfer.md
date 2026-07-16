@@ -1,0 +1,41 @@
+# P18 — Dataset Transfer
+
+## Scope
+
+Evaluate the **frozen** RAVEN-Select rule on:
+
+1. InfographicVQA n=300 (single-image pipeline unchanged)
+2. MP-DocVQA **contact-sheet transfer setting** n=300 (budgeted adaptation; not standard MP-DocVQA)
+
+Do not retune. Do not claim “we solve MP-DocVQA.”
+
+## Gate (per dataset)
+
+| Outcome | Condition |
+|---------|-----------|
+| **FULL TRANSFER** | Beats resize and shortest; both CI lower bounds > 0 |
+| **PARTIAL TRANSFER** | Significantly beats resize only |
+| **FAIL** | Significantly beats neither |
+
+## Commands / config
+
+```text
+# After adapters + manifests exist:
+python scripts/run_raven_select_eval.py --n 300 --dataset infographicvqa
+python scripts/run_raven_select_eval.py --n 300 --dataset mpdocvqa_contact
+```
+
+## Leakage safeguards
+
+No gold page labels, gold answers, or gold-derived OCR flags at inference.
+
+## Results
+
+| Dataset | resize | shortest | RAVEN-Select | Gate |
+|---------|--------|----------|--------------|------|
+| InfographicVQA n=300 | — | — | — | PENDING |
+| MP-DocVQA contact-sheet n=300 | — | — | — | PENDING |
+
+## Commit
+
+- TBD
