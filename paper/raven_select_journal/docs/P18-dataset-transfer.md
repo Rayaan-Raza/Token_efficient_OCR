@@ -36,6 +36,13 @@ No gold page labels, gold answers, or gold-derived OCR flags at inference.
 | InfographicVQA n=300 | — | — | — | PENDING |
 | MP-DocVQA contact-sheet n=300 | — | — | — | PENDING |
 
+
+## Implementation status
+
+- Scripts: scripts/download_infographicvqa_hf.py, scripts/download_mpdocvqa_contact.py, src/data/contact_sheet.py
+- Smoke HF downloads hung in this environment; transfer evaluation is blocked until local subsets are obtained.
+- Framing: MP-DocVQA contact-sheet transfer setting only.
+
 ## Commit
 
 - TBD
