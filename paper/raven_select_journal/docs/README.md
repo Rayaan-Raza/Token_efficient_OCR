@@ -18,6 +18,7 @@ Execution order (prespecified):
 
 | Doc | Phase | Gate summary |
 |-----|-------|--------------|
+| [method-freeze.md](method-freeze.md) | Method lock | Production rule versioned at 1.0.0 |
 | [P17-docvqa-scale.md](P17-docvqa-scale.md) | DocVQA scale | PASS / PARTIAL / FAIL vs resize & shortest |
 | [P18-dataset-transfer.md](P18-dataset-transfer.md) | Second datasets | FULL / PARTIAL / FAIL transfer per dataset |
 | [P19-vlm-robustness.md](P19-vlm-robustness.md) | Second VLM | FULL / PARTIAL / FAIL robustness |
