@@ -14,7 +14,7 @@ import pandas as pd
 
 from src.routing import normalize_pred
 from src.routing.train import METHOD_FILES, load_methods
-from src.utils.ocr_cache import load_cached_ocr_boxes, load_cached_patch_ocr
+from src.utils.ocr_cache import DEFAULT_OCR_ENGINE, load_cached_ocr_boxes, load_cached_patch_ocr
 from src.utils.paths import outputs_path
 
 DEFAULT_METHODS = ["resize", "bm25", "ler_bops"]
@@ -39,14 +39,16 @@ def build_ocr_presence_cache(
     metrics_tag: str = "",
     num_patches: int = 2,
     out_path: Path | None = None,
+    ocr_engine: str | None = None,
 ) -> Path:
     """Write model-tagged OCR-presence rows for each (image_id, route)."""
     methods = list(methods or DEFAULT_METHODS)
     data = load_methods(n, methods, metrics_tag=metrics_tag)
+    engine = ocr_engine or DEFAULT_OCR_ENGINE
     rows = []
     missing_full = 0
     for iid in data.index:
-        boxes = load_cached_ocr_boxes(str(iid))
+        boxes = load_cached_ocr_boxes(str(iid), engine=engine)
         full_text = _boxes_to_text(boxes)
         if not full_text:
             missing_full += 1
@@ -62,6 +64,7 @@ def build_ocr_presence_cache(
             rows.append({
                 "image_id": iid,
                 "route": m,
+                "ocr_engine": engine,
                 "prediction": pred,
                 "full_ocr_text": full_text[:5000],  # cap size
                 "patch_ocr_text": patch_text[:5000],
@@ -71,8 +74,9 @@ def build_ocr_presence_cache(
                 "has_patch_ocr": bool(patch_text),
             })
     suffix = f"_{metrics_tag}" if metrics_tag else ""
+    engine_suffix = f"_{engine}" if engine != DEFAULT_OCR_ENGINE else ""
     out = out_path or outputs_path(
-        "metrics", f"raven_select_ocr_presence_n{n}{suffix}.parquet"
+        "metrics", f"raven_select_ocr_presence_n{n}{engine_suffix}{suffix}.parquet"
     )
     out.parent.mkdir(parents=True, exist_ok=True)
     df = pd.DataFrame(rows)
@@ -80,6 +84,7 @@ def build_ocr_presence_cache(
     meta = {
         "n": n,
         "metrics_tag": metrics_tag,
+        "ocr_engine": engine,
         "rows": len(df),
         "missing_full_ocr_images": missing_full,
         "frac_pred_in_full": float(df["pred_in_full_ocr"].mean()),
