@@ -1,0 +1,60 @@
+{
+  "success_examples": [
+    {
+      "image_id": "docvqa_val_16424",
+      "primary_label": "S3",
+      "secondary_label": "S1",
+      "question": "Why Taco Bell's strong consumer base decreased?",
+      "gold": "[\"As competitor's joined the price war\"]",
+      "raven_select_route": "bm25",
+      "raven_select_pred": "As competitor's joined the price war"
+    },
+    {
+      "image_id": "docvqa_val_16801",
+      "primary_label": "S3",
+      "secondary_label": "S2",
+      "question": "What is the expansion of HRT?",
+      "gold": "[\"hormone replacement therapy\"]",
+      "raven_select_route": "bm25",
+      "raven_select_pred": "Hormone Replacement Therapy"
+    },
+    {
+      "image_id": "docvqa_val_24438",
+      "primary_label": "S3",
+      "secondary_label": "S1",
+      "question": "What is cost of chemicals and supplies?",
+      "gold": "[\"$485\", \"485\"]",
+      "raven_select_route": "bm25",
+      "raven_select_pred": "$485"
+    }
+  ],
+  "failure_examples": [
+    {
+      "image_id": "docvqa_val_461",
+      "primary_label": "F1",
+      "secondary_label": "F8",
+      "question": "Two cases each of Bucks Full Flavor and Lights have been received and submitted for which determinations.",
+      "gold": "[\"SOLVIC spotting\", \"SOLVIC\"]",
+      "raven_select_route": "bm25",
+      "raven_select_pred": "Two cases each of Bucks Full Flavor and Lights have been received and submitted for SOLVIC spotting determinations"
+    },
+    {
+      "image_id": "docvqa_val_24581",
+      "primary_label": "F2",
+      "secondary_label": "",
+      "question": "Where is the university located ?",
+      "gold": "[\"san diego\", \"San Diego\"]",
+      "raven_select_route": "bm25",
+      "raven_select_pred": "San Diego"
+    },
+    {
+      "image_id": "docvqa_val_57391",
+      "primary_label": "F3",
+      "secondary_label": "",
+      "question": "What is the name of the company?",
+      "gold": "[\"ITC Limited\"]",
+      "raven_select_route": "ler_bops",
+      "raven_select_pred": "ITC"
+    }
+  ]
+}

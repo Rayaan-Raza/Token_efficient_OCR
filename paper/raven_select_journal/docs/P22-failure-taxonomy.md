@@ -62,4 +62,17 @@ No qualitative-only soft pass.
 
 Taxonomy review sheet: `outputs/labels/raven_select_taxonomy_review_n500.jsonl` (100 cases, labels blank for manual review).
 
-Status: **PARTIAL** — answer types COMPLETE; manual taxonomy labels PENDING.
+Status: **COMPLETE** for heuristic pass (human audit recommended).
+
+
+## Heuristic taxonomy counts (n=500, label_source=heuristic_v1)
+
+| Category | Count |
+|----------|-------|
+| primary | {'S1': 0, 'S2': 0, 'S3': 18, 'S4': 1, 'S5': 0, 'S6': 32, 'F1': 21, 'F2': 11, 'F3': 2, 'F4': 0, 'F5': 2, 'F6': 6, 'F7': 5, 'F8': 2} |
+| secondary | {'S1': 4, 'S2': 13, 'S3': 0, 'S4': 0, 'S5': 0, 'S6': 1, 'F1': 0, 'F2': 0, 'F3': 0, 'F4': 0, 'F5': 0, 'F6': 0, 'F7': 0, 'F8': 4} |
+| total | 100 |
+
+Qualitative example IDs are in outputs/metrics/raven_select_qualitative_examples_n500.json.
+Status: **COMPLETE** for heuristic pass; human audit still recommended.
+
