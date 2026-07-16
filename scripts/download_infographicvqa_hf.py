@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """Stream InfographicVQA validation samples from Hugging Face into local files.
 
-Expected Hugging Face dataset: ``HuggingFaceM4/FineVision`` with config
-``infographic_vqa``. If downloading is unavailable in this environment, the
-script still documents the id and can be run later when Hugging Face access
-is available.
+Primary Hugging Face source: ``lmms-lab/DocVQA`` config ``InfographicVQA``
+(validation split). Fallback: ``HuggingFaceM4/FineVision`` / ``infographic_vqa``.
 
 Examples::
 
@@ -28,8 +26,8 @@ from tqdm import tqdm
 
 from src.utils.paths import data_path, repo_path
 
-HF_DATASET_ID = "HuggingFaceM4/FineVision"
-HF_DATASET_CONFIG = "infographic_vqa"
+HF_DATASET_ID = "lmms-lab/DocVQA"
+HF_DATASET_CONFIG = "InfographicVQA"
 
 
 def parse_args() -> argparse.Namespace:
