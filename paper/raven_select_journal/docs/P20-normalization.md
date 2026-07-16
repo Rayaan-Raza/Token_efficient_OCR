@@ -24,14 +24,15 @@ Any post-inspection choice keeps its distinct variant name.
 
 | Grounding rule | ANLS | EM |
 |----------------|------|----|
-| raw | — | — |
-| conservative (production) | — | — |
-| number normalization | — | — |
-| date normalization | — | — |
-| fuzzy | — | — |
+| RAVEN-Select-Raw (raw) | 0.8000 | 0.696 |
+| RAVEN-Select (conservative) | 0.8053 | 0.706 |
+| RAVEN-Select-NumNorm (num_norm) | 0.8064 | 0.704 |
+| RAVEN-Select-DateNorm (date_norm) | 0.7900 | 0.684 |
+| RAVEN-Select-Fuzzy (fuzzy) | 0.8067 | 0.700 |
 
-Status: **PENDING**
+Status: **COMPLETE** for n=500. Production conservative rule unchanged.
+NumNorm/DateNorm/Fuzzy are exploratory named variants only.
 
 ## Commit
 
-- TBD
+- see git history
