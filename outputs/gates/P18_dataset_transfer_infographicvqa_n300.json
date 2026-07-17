@@ -1,0 +1,38 @@
+{
+  "name": "P18_dataset_transfer",
+  "passed": false,
+  "metrics": {
+    "dataset": "infographicvqa",
+    "n": 300,
+    "requested_n": 300,
+    "status": "FAIL",
+    "model": "raven_select_rule",
+    "method_version": "1.0.0",
+    "raven_select_anls": 0.3166858235783015,
+    "raven_select_em": 0.2833333333333333,
+    "vs_resize": {
+      "delta": 0.012021761626323955,
+      "ci95": [
+        -0.012468658394419267,
+        0.037655365372650455
+      ],
+      "ci_lower_positive": false
+    },
+    "vs_shortest_nonempty": {
+      "delta": 0.011433816425120773,
+      "ci95": [
+        -0.004857572463768116,
+        0.02751234299516908
+      ],
+      "ci_lower_positive": false
+    },
+    "beats_resize_significant": false,
+    "beats_shortest_significant": false
+  },
+  "thresholds": {
+    "ci_lower_vs_resize_gt_0": true,
+    "ci_lower_vs_shortest_gt_0": true
+  },
+  "message": "FAIL: dataset=infographicvqa n=300 anls=0.3166858235783015 vs_resize_ci=[-0.012468658394419267, 0.037655365372650455] vs_short_ci=[-0.004857572463768116, 0.02751234299516908]",
+  "artifacts": null
+}

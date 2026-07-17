@@ -33,8 +33,15 @@ No gold page labels, gold answers, or gold-derived OCR flags at inference.
 
 | Dataset | resize | shortest | RAVEN-Select | Gate |
 |---------|--------|----------|--------------|------|
-| InfographicVQA n=300 | — | — | — | PENDING |
+| InfographicVQA n=300 | 0.3047 | 0.3053 | **0.3167** | **FAIL** |
 | MP-DocVQA contact-sheet n=300 | 0.3252 | 0.3244 | **0.3360** | **FAIL** |
+
+On InfographicVQA, the mean gains are +0.0120 over resize
+(95% CI [−0.0125, +0.0377]) and +0.0114 over shortest nonempty
+([−0.0049, +0.0275]); neither is significant.  The frozen rule routes
+227 / 48 / 25 examples to resize / BM25 / LER-BOPS.  Notably, the BM25 reader
+alone reaches 0.3713 ANLS and 0.3233 EM, exceeding the frozen selector's
+0.3167 / 0.2833.  This is a negative transfer result and no rule is retuned.
 
 MP contact-sheet RAVEN-Select improves by 0.0108 ANLS over resize, but the
 paired 95% bootstrap CI crosses zero ([-0.0095, 0.0330]). It improves by
@@ -48,6 +55,8 @@ The frozen rule routes 222 / 47 / 31 examples to resize / BM25 / LER-BOPS.
 
 Artifacts:
 
+- `outputs/metrics/raven_select_raven_select_rule_infographicvqa_n300.json`
+- `outputs/gates/P18_dataset_transfer_infographicvqa_n300.json`
 - `outputs/metrics/raven_select_raven_select_rule_mpdocvqa_contact_n300.json`
 - `outputs/gates/P18_dataset_transfer_mpdocvqa_contact_n300.json`
 
