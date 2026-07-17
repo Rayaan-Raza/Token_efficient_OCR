@@ -164,6 +164,6 @@
     }
   ],
   "table": "C:\\Users\\rayaan\\Desktop\\OCR_paper\\outputs\\metrics\\raven_select_main_table_n1000.csv",
-  "p17_status": "FAIL",
+  "p17_status": "PARTIAL",
   "p17_pass": false
 }
