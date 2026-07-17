@@ -12,7 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from src.data.dataset_loader import iter_manifest
-from src.ocr.run_ocr import reset_ocr, run_ocr_with_boxes
+from src.ocr.run_ocr import reset_ocr, run_ocr_with_boxes, set_ocr_engine
 from src.utils.image_io import load_image
 from src.utils.logging_utils import log_progress, log_section, setup_experiment_logging
 from src.utils.ocr_cache import load_cached_ocr_boxes, save_cached_ocr_boxes
@@ -47,7 +47,8 @@ def _ocr_image(image, max_side: int = 1600) -> list[dict]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run full-page OCR cache.")
     parser.add_argument("--manifest", type=Path, required=True)
-    parser.add_argument("--engine", default="easyocr")
+    parser.add_argument("--engine", default="easyocr", help="Cache namespace for OCR boxes")
+    parser.add_argument("--ocr-backend", default="", help="OCR runtime backend (easyocr, tesseract, paddle)")
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--max-side", type=int, default=1600, help="Downscale long side before OCR")
     parser.add_argument("--force-cpu", action="store_true")
@@ -57,8 +58,13 @@ def main() -> None:
     logger = setup_experiment_logging("fullpage_ocr")
     log_section(logger, f"Full-page OCR | engine={args.engine} max_side={args.max_side}")
 
+    backend = args.ocr_backend or args.engine
+    if backend in {"easyocr", "easyocr_lowres"}:
+        backend = "easyocr"
     if args.force_cpu:
-        reset_ocr(force_cpu=True)
+        reset_ocr(force_cpu=True, engine=backend)
+    else:
+        set_ocr_engine(backend)
 
     records = list(iter_manifest(args.manifest))
     if args.limit:
@@ -71,16 +77,16 @@ def main() -> None:
             continue
         seen.add(iid)
         log_progress(logger, len(seen), len({_image_id(r) for r in records}), iid)
-        if load_cached_ocr_boxes(iid):
+        if load_cached_ocr_boxes(iid, engine=args.engine):
             logger.info("  cache hit")
             continue
         t0 = time.perf_counter()
         image = load_image(rec["image_path"])
         boxes = _ocr_image(image, max_side=args.max_side)
-        save_cached_ocr_boxes(iid, boxes)
+        save_cached_ocr_boxes(iid, boxes, engine=args.engine)
         logger.info("  OCR %.2fs | %d boxes", time.perf_counter() - t0, len(boxes))
 
-    logger.info("Cache dir: %s", outputs_path("cache", "ocr_boxes"))
+    logger.info("Cache dir: %s", outputs_path("cache", "ocr_boxes", args.engine if args.engine != "easyocr" else ""))
 
 
 if __name__ == "__main__":

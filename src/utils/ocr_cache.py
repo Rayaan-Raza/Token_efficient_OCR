@@ -12,17 +12,22 @@ from typing import Any
 from src.utils.paths import outputs_path
 
 
-def _boxes_cache_path(image_id: str) -> Path:
-    return outputs_path("cache", "ocr_boxes", f"{image_id}.json")
+DEFAULT_OCR_ENGINE = "easyocr"
+
+
+def _boxes_cache_path(image_id: str, engine: str = DEFAULT_OCR_ENGINE) -> Path:
+    if engine == DEFAULT_OCR_ENGINE:
+        return outputs_path("cache", "ocr_boxes", f"{image_id}.json")
+    return outputs_path("cache", "ocr_boxes", engine, f"{image_id}.json")
 
 
 def _patch_ocr_cache_path(image_id: str, method: str, num_patches: int) -> Path:
     return outputs_path("cache", "patch_ocr", f"{image_id}_{method}_k{num_patches}.json")
 
 
-def load_cached_ocr_boxes(image_id: str) -> list[dict[str, Any]] | None:
+def load_cached_ocr_boxes(image_id: str, engine: str | None = None) -> list[dict[str, Any]] | None:
     """Load cached full-image OCR boxes for ``image_id``, or None if missing."""
-    path = _boxes_cache_path(image_id)
+    path = _boxes_cache_path(image_id, engine or DEFAULT_OCR_ENGINE)
     if not path.exists():
         return None
     try:
@@ -46,9 +51,14 @@ def _json_safe_boxes(boxes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
-def save_cached_ocr_boxes(image_id: str, boxes: list[dict[str, Any]]) -> Path:
+def save_cached_ocr_boxes(
+    image_id: str,
+    boxes: list[dict[str, Any]],
+    *,
+    engine: str | None = None,
+) -> Path:
     """Persist full-image OCR boxes to disk cache."""
-    path = _boxes_cache_path(image_id)
+    path = _boxes_cache_path(image_id, engine or DEFAULT_OCR_ENGINE)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
     with open(tmp, "w", encoding="utf-8") as f:
