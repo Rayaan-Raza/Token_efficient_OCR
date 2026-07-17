@@ -1,0 +1,208 @@
+{
+  "n": 100,
+  "dataset": "docvqa",
+  "original_raven_select": {
+    "anls": 0.8197792851406297,
+    "em": 0.69
+  },
+  "variants": [
+    {
+      "variant": "margin_crop",
+      "fullpage_method": "margin_crop_resize",
+      "anls": 0.8522400694543552,
+      "em": 0.73,
+      "vs_resize": {
+        "delta": 0.05653689681000605,
+        "ci95": [
+          0.007799294717887159,
+          0.11396083305116915
+        ],
+        "ci_lower_positive": true
+      },
+      "vs_original_raven": {
+        "delta": 0.03246078431372549,
+        "ci95": [
+          0.0021666666666666666,
+          0.07193504901960783
+        ],
+        "ci_lower_positive": true
+      },
+      "route_counts": {
+        "resize": 85,
+        "bm25": 13,
+        "ler_bops": 2
+      },
+      "method": {
+        "method_id": "raven_select",
+        "method_version": "1.0.0",
+        "method_name": "RAVEN-Select",
+        "readers": [
+          "resize",
+          "bm25",
+          "ler_bops"
+        ],
+        "tie_break_order": [
+          "resize",
+          "bm25",
+          "ler_bops"
+        ],
+        "normalization": "conservative_lowercase_punct_ws",
+        "grounding": "page_or_route_patch_ocr_substring",
+        "selection": "shortest_ocr_grounded_else_shortest_nonempty",
+        "vlm_calls": 3,
+        "production_flags": {
+          "use_ocr": true,
+          "use_length": true,
+          "use_answer_type": false,
+          "use_consensus": false
+        },
+        "leakage_excluded": [
+          "gold_answer",
+          "anls_to_gold",
+          "em_to_gold",
+          "answer_in_full_image_ocr",
+          "answer_in_selected_patch_ocr",
+          "oracle_route"
+        ],
+        "role": "production",
+        "comparator_model": "raven_select_rule"
+      },
+      "method_version": "1.0.0",
+      "metrics_tag": "seam_margin_crop_resize",
+      "gate_status": "PASS",
+      "gate_passed": true
+    },
+    {
+      "variant": "ws_compress",
+      "fullpage_method": "ws_compress_resize",
+      "anls": 0.8659405356548214,
+      "em": 0.76,
+      "vs_resize": {
+        "delta": 0.03574629851940777,
+        "ci95": [
+          -0.02323651960784313,
+          0.10169602841136455
+        ],
+        "ci_lower_positive": false
+      },
+      "vs_original_raven": {
+        "delta": 0.04616125051419169,
+        "ci95": [
+          0.010286764705882351,
+          0.08983034759358288
+        ],
+        "ci_lower_positive": true
+      },
+      "route_counts": {
+        "resize": 83,
+        "bm25": 15,
+        "ler_bops": 2
+      },
+      "method": {
+        "method_id": "raven_select",
+        "method_version": "1.0.0",
+        "method_name": "RAVEN-Select",
+        "readers": [
+          "resize",
+          "bm25",
+          "ler_bops"
+        ],
+        "tie_break_order": [
+          "resize",
+          "bm25",
+          "ler_bops"
+        ],
+        "normalization": "conservative_lowercase_punct_ws",
+        "grounding": "page_or_route_patch_ocr_substring",
+        "selection": "shortest_ocr_grounded_else_shortest_nonempty",
+        "vlm_calls": 3,
+        "production_flags": {
+          "use_ocr": true,
+          "use_length": true,
+          "use_answer_type": false,
+          "use_consensus": false
+        },
+        "leakage_excluded": [
+          "gold_answer",
+          "anls_to_gold",
+          "em_to_gold",
+          "answer_in_full_image_ocr",
+          "answer_in_selected_patch_ocr",
+          "oracle_route"
+        ],
+        "role": "production",
+        "comparator_model": "raven_select_rule"
+      },
+      "method_version": "1.0.0",
+      "metrics_tag": "seam_ws_compress_resize",
+      "gate_status": "FAIL",
+      "gate_passed": false
+    },
+    {
+      "variant": "ocr_seam",
+      "fullpage_method": "ocr_seam_resize",
+      "anls": 0.8506884821527678,
+      "em": 0.72,
+      "vs_resize": {
+        "delta": 0.04522812714829523,
+        "ci95": [
+          -0.008931913837796181,
+          0.09837632855006806
+        ],
+        "ci_lower_positive": false
+      },
+      "vs_original_raven": {
+        "delta": 0.030909197012138186,
+        "ci95": [
+          -0.02104362161531279,
+          0.08714285714285713
+        ],
+        "ci_lower_positive": false
+      },
+      "route_counts": {
+        "resize": 79,
+        "bm25": 18,
+        "ler_bops": 3
+      },
+      "method": {
+        "method_id": "raven_select",
+        "method_version": "1.0.0",
+        "method_name": "RAVEN-Select",
+        "readers": [
+          "resize",
+          "bm25",
+          "ler_bops"
+        ],
+        "tie_break_order": [
+          "resize",
+          "bm25",
+          "ler_bops"
+        ],
+        "normalization": "conservative_lowercase_punct_ws",
+        "grounding": "page_or_route_patch_ocr_substring",
+        "selection": "shortest_ocr_grounded_else_shortest_nonempty",
+        "vlm_calls": 3,
+        "production_flags": {
+          "use_ocr": true,
+          "use_length": true,
+          "use_answer_type": false,
+          "use_consensus": false
+        },
+        "leakage_excluded": [
+          "gold_answer",
+          "anls_to_gold",
+          "em_to_gold",
+          "answer_in_full_image_ocr",
+          "answer_in_selected_patch_ocr",
+          "oracle_route"
+        ],
+        "role": "production",
+        "comparator_model": "raven_select_rule"
+      },
+      "method_version": "1.0.0",
+      "metrics_tag": "seam_ocr_seam_resize",
+      "gate_status": "FAIL",
+      "gate_passed": false
+    }
+  ]
+}

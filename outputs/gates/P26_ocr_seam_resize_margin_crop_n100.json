@@ -1,0 +1,35 @@
+{
+  "name": "P26_ocr_seam_resize",
+  "passed": true,
+  "metrics": {
+    "variant": "margin_crop",
+    "n": 100,
+    "status": "PASS",
+    "method_version": "1.0.0",
+    "seam_anls": 0.8522400694543552,
+    "resize_anls": 0.7957031726443492,
+    "original_raven_anls": 0.8197792851406297,
+    "vs_resize": {
+      "delta": 0.05653689681000605,
+      "ci95": [
+        0.007799294717887159,
+        0.11396083305116915
+      ],
+      "ci_lower_positive": true
+    },
+    "vs_original_raven": {
+      "delta": 0.03246078431372549,
+      "ci95": [
+        0.0021666666666666666,
+        0.07193504901960783
+      ],
+      "ci_lower_positive": true
+    }
+  },
+  "thresholds": {
+    "ci_lower_vs_resize_gt_0": true,
+    "ci_lower_vs_original_raven_gt_0": true
+  },
+  "message": "PASS: variant=margin_crop n=100 seam=0.8522 resize=0.7957 orig=0.8198",
+  "artifacts": null
+}

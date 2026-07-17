@@ -1,34 +1,34 @@
 # 04 — Status
 
-**Status:** SCAFFOLDED
+**Status:** PILOT COMPLETE · n=1000 RUNNING
 
 Restore parent study: git `0faa3c3` / `paper/raven_select_journal/RESTORE_POINT.md`.
 
-| Variant | Code | Pilot | n=1000 full-page | Selector |
-|---------|------|-------|------------------|----------|
-| MarginCrop-Resize | `src/preprocessing/ocr_page_compress.py` | not run | — | — |
-| WhitespaceCompress-Resize | same | not run | — | — |
-| OCR-SeamResize | same | not run | — | — |
+## Pilot DocVQA n=100 (full-page alone)
 
-## How to run
+| Full-page reader | ANLS | EM |
+|------------------|------|----|
+| Resize | 0.7876 | 0.680 |
+| MarginCrop-Resize | 0.7957 | 0.680 |
+| WhitespaceCompress-Resize | **0.8302** | **0.710** |
+| OCR-SeamResize | 0.8055 | 0.660 |
 
-```text
-# Smoke / pilot full-page readers
-python scripts/run_vlm_eval.py --manifest Data/manifests/docvqa_100.jsonl \
-  --method margin_crop_resize --limit 100 --checkpoint-every 5
-python scripts/run_vlm_eval.py --manifest Data/manifests/docvqa_100.jsonl \
-  --method ws_compress_resize --limit 100 --checkpoint-every 5
-python scripts/run_vlm_eval.py --manifest Data/manifests/docvqa_100.jsonl \
-  --method ocr_seam_resize --limit 100 --checkpoint-every 5
+## Pilot selector (frozen RAVEN-Select v1.0.0)
 
-# After n=1000 full-page CSVs exist (BM25/LER already cached):
-python scripts/run_ocr_seam_resize_eval.py --n 1000 --write-gates --skip-missing
-```
+Original RAVEN-Select: 0.8198 / 0.690
 
-Gate: **PENDING** (see `docs/03-gates.md`)
+| Setting | ANLS | EM | vs resize CI>0 | vs orig CI>0 | Gate |
+|---------|------|----|----------------|--------------|------|
+| + MarginCrop | **0.8522** | 0.730 | yes | yes | **PASS** |
+| + WhitespaceCompress | **0.8659** | 0.760 | no | yes | FAIL* |
+| + OCR-SeamResize | 0.8507 | 0.720 | no | no | FAIL |
 
-## Constraints
+\*Highest mean; resize CI crosses zero at n=100.
 
-- Frozen RAVEN-Select v1.0.0 selector is not retuned.
-- No gold answers in compression.
-- Classic unprotected seam carving is not used.
+Artifact: `outputs/metrics/ocr_seam_resize_selector_n100.json`
+
+## n=1000
+
+VLM driver running (margin_crop → ws_compress → ocr_seam). BM25/LER already cached.
+
+Gate on n=1000 remains **PENDING** until CSVs + selector eval finish.

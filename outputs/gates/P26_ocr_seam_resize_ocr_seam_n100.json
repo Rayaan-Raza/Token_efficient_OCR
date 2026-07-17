@@ -1,0 +1,35 @@
+{
+  "name": "P26_ocr_seam_resize",
+  "passed": false,
+  "metrics": {
+    "variant": "ocr_seam",
+    "n": 100,
+    "status": "FAIL",
+    "method_version": "1.0.0",
+    "seam_anls": 0.8506884821527678,
+    "resize_anls": 0.8054603550044726,
+    "original_raven_anls": 0.8197792851406297,
+    "vs_resize": {
+      "delta": 0.04522812714829523,
+      "ci95": [
+        -0.008931913837796181,
+        0.09837632855006806
+      ],
+      "ci_lower_positive": false
+    },
+    "vs_original_raven": {
+      "delta": 0.030909197012138186,
+      "ci95": [
+        -0.02104362161531279,
+        0.08714285714285713
+      ],
+      "ci_lower_positive": false
+    }
+  },
+  "thresholds": {
+    "ci_lower_vs_resize_gt_0": true,
+    "ci_lower_vs_original_raven_gt_0": true
+  },
+  "message": "FAIL: variant=ocr_seam n=100 seam=0.8507 resize=0.8055 orig=0.8198",
+  "artifacts": null
+}
