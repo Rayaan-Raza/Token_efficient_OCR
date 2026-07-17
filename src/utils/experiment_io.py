@@ -82,14 +82,7 @@ def default_vlm_checkpoint_path(
     return outputs_path("checkpoints", f"vlm_eval_{stem}_{method}_{suffix}_{experiment_stage}.json")
 
 
-def load_vlm_checkpoint(path: str | Path) -> dict[str, Any] | None:
-    """Load VLM eval checkpoint if present."""
-    return load_ocr_checkpoint(path)
-
-
-def save_vlm_checkpoint(path: str | Path, payload: dict[str, Any]) -> Path:
-    """Persist VLM eval checkpoint atomically."""
-    return save_ocr_checkpoint(path, payload)
+def load_ocr_checkpoint(path: str | Path) -> dict[str, Any] | None:
     """Load OCR eval checkpoint if present."""
     p = Path(path)
     if not p.exists():
@@ -107,6 +100,16 @@ def save_ocr_checkpoint(path: str | Path, payload: dict[str, Any]) -> Path:
         json.dump(payload, f, indent=2)
     tmp.replace(out)
     return out
+
+
+def load_vlm_checkpoint(path: str | Path) -> dict[str, Any] | None:
+    """Load VLM eval checkpoint if present."""
+    return load_ocr_checkpoint(path)
+
+
+def save_vlm_checkpoint(path: str | Path, payload: dict[str, Any]) -> Path:
+    """Persist VLM eval checkpoint atomically."""
+    return save_ocr_checkpoint(path, payload)
 
 
 def write_or_append_csv(
@@ -161,10 +164,14 @@ def write_or_append_csv(
         )
 
     all_rows = existing_rows + rows if append else rows
-    with open(out, "w", newline="", encoding="utf-8") as f:
+    # Atomic replace avoids truncated CSVs if the process is interrupted mid-write.
+    tmp = out.with_suffix(out.suffix + ".tmp")
+    with open(tmp, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(all_rows)
+        f.flush()
+    tmp.replace(out)
     return out
 
 

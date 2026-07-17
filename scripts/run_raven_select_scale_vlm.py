@@ -13,7 +13,11 @@ REPO = Path(__file__).resolve().parents[1]
 
 
 def _run(cmd: list[str], *, retries: int = 3) -> None:
-    env = {**dict(**{k: v for k, v in __import__("os").environ.items()}), "PYTHONPATH": str(REPO)}
+    import os
+
+    env = {**os.environ, "PYTHONPATH": str(REPO)}
+    if "PYTORCH_CUDA_ALLOC_CONF" not in env:
+        env["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
     for attempt in range(1, retries + 1):
         print(">>", " ".join(cmd), f"(attempt {attempt}/{retries})", flush=True)
         proc = subprocess.run(cmd, cwd=str(REPO), env=env)
@@ -21,7 +25,7 @@ def _run(cmd: list[str], *, retries: int = 3) -> None:
             return
         print(f"command failed with code {proc.returncode}", flush=True)
         if attempt < retries:
-            time.sleep(15 * attempt)
+            time.sleep(30 * attempt)
     raise SystemExit(f"failed after {retries} attempts: {' '.join(cmd)}")
 
 

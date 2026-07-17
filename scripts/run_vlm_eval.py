@@ -44,10 +44,10 @@ from src.utils.experiment_io import (
     write_or_append_csv,
 )
 from src.utils.image_io import load_image
-from src.utils.paths import repo_path
+from src.utils.paths import outputs_path, repo_path
 from src.vlm.patch_diagnostics import compute_patch_diagnostics
 from src.vlm.qa_metrics import anls, exact_match
-from src.vlm.run_vlm import run_vlm_overview_patches, run_vlm_single
+from src.vlm.run_vlm import run_vlm_overview_patches, run_vlm_single, set_vlm_model, is_cuda_failure
 from src.preprocessing.overview import generate_overview
 from src.utils.ocr_cache import load_cached_ocr_boxes
 
@@ -59,12 +59,24 @@ QE_BOPS_METHODS = {
     "ocr_confidence_topk", "bm25_only", "question_overlap_topk", "answer_type_only",
     "multiscale_uniform", "edge_strip",
     "learned_logreg", "learned_lgbm_strict", "learned_lgbm_any",
-    "learned_lgbm_combined", "learned_lgbm_qbops_hybrid",
+    "learned_lgbm_combined", "learned_lgbm_qbops_hybrid", "oracle",
 }
 
 
 def _sort_reading_order(patches: list[Patch]) -> list[Patch]:
     return sorted(patches, key=lambda p: (p.y, p.x))
+
+
+def _resolve_ocr_augmented(method: str) -> tuple[str, bool]:
+    """Return (base_selector_method, use_ocr_prompt)."""
+    if method.endswith("_ocr"):
+        return method[:-4], True
+    return method, False
+
+
+def _is_fair_pool_vlm_method(method: str) -> bool:
+    base, _ = _resolve_ocr_augmented(method)
+    return base in QE_BOPS_METHODS or method in ("random", "uniform")
 
 
 def _run_qe_bops_vlm(
@@ -73,8 +85,13 @@ def _run_qe_bops_vlm(
     method: str,
     num_patches: int,
     seed: int = 0,
-) -> tuple[Any, list[Any], dict[str, Any]]:
-    """Run fair-pool selector + overview for VLM input."""
+    *,
+    patch_labels: list[dict[str, Any]] | None = None,
+) -> tuple[Any, list[Any], dict[str, Any], list[str]]:
+    """Run fair-pool selector + overview for VLM input.
+
+    Returns overview, patch_images, meta, and OCR evidence lines for optional prompt augmentation.
+    """
     question = record.get("question", "")
     image_id = str(record["image_id"])
     boxes = load_cached_ocr_boxes(image_id) or []
@@ -82,15 +99,22 @@ def _run_qe_bops_vlm(
         image, method, num_patches, question, boxes, seed=seed,
         image_id=image_id,
         question_id=str(record.get("question_id") or record.get("qid") or "") or None,
-        prefer_oof=True,
+        prefer_oof=(method != "oracle"),
+        patch_labels=patch_labels,
+        eval_labels=(method == "oracle"),
     )
     overview, _ = generate_overview(image, 1_048_576)
     patch_images = []
+    ocr_lines: list[str] = []
+    from src.preprocessing.patch_grid import crop_patch
+    from src.preprocessing.patch_scoring_qa import patch_ocr_text
     for p in _sort_reading_order(sel.patches):
-        from src.preprocessing.patch_grid import crop_patch
         patch_images.append(crop_patch(image, p))
+        text = patch_ocr_text(p, boxes).strip()
+        if text:
+            ocr_lines.append(text[:500])
     meta = {"mode": method, **sel.meta, "invalid_budget": False}
-    return overview, patch_images, meta
+    return overview, patch_images, meta, ocr_lines
 
 _DIAG_NA = {
     "answer_in_selected_patch_ocr": None,
@@ -163,6 +187,7 @@ def _eval_one_sample(
     method: str,
     num_patches: int,
     dry_run: bool,
+    patch_labels: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     image_id = record["image_id"]
     image = load_image(repo_path(record["image_path"]))
@@ -187,10 +212,18 @@ def _eval_one_sample(
         bops_result = run_bops(image, 0, mode="overview_only")
         invalid_budget = bool(bops_result["meta"].get("invalid_budget", False))
         raw_pred, parsed = run_vlm_single(bops_result["overview"], question)
-    elif method in QE_BOPS_METHODS or method in ("random", "uniform"):
-        overview, patch_images, meta = _run_qe_bops_vlm(image, record, method, num_patches)
+    elif _is_fair_pool_vlm_method(method):
+        base_method, use_ocr = _resolve_ocr_augmented(method)
+        overview, patch_images, meta, ocr_lines = _run_qe_bops_vlm(
+            image, record, base_method, num_patches, patch_labels=patch_labels,
+        )
         invalid_budget = bool(meta.get("invalid_budget", False))
-        raw_pred, parsed = run_vlm_overview_patches(overview, patch_images, question)
+        if use_ocr:
+            raw_pred, parsed = run_vlm_overview_patches(
+                overview, patch_images, question, ocr_evidence_lines=ocr_lines,
+            )
+        else:
+            raw_pred, parsed = run_vlm_overview_patches(overview, patch_images, question)
         bops_result = {
             "overview": overview,
             "patches": patch_images,
@@ -249,6 +282,7 @@ def main() -> None:
             "multiscale_uniform", "edge_strip",
             "learned_logreg", "learned_lgbm_strict", "learned_lgbm_any",
             "learned_lgbm_combined", "learned_lgbm_qbops_hybrid",
+            "learned_lgbm_strict_ocr", "bm25_only_ocr", "oracle", "oracle_ocr",
         ],
     )
     parser.add_argument("--num-patches", type=int, default=4, help="Patch budget for patch modes")
@@ -265,6 +299,16 @@ def main() -> None:
         default=CHECKPOINT_EVERY_DEFAULT,
         help="Save CSV + checkpoint every N samples (default 10)",
     )
+    parser.add_argument(
+        "--model",
+        default=VLM_MODEL_NAME,
+        help="Hugging Face VLM id (default Qwen2.5-VL-3B)",
+    )
+    parser.add_argument(
+        "--metrics-tag",
+        default="",
+        help="Optional suffix for output CSV (e.g. qwen2vl2b)",
+    )
     args = parser.parse_args()
 
     if args.append and args.overwrite:
@@ -272,16 +316,28 @@ def main() -> None:
 
     run_id = args.run_id or new_run_id()
     mode = "DRY-RUN" if args.dry_run else "REAL"
+    model_name = args.model
+    if not args.dry_run:
+        set_vlm_model(model_name)
+
     csv_path = Path(args.output) if args.output else default_vlm_metrics_path(
         args.manifest, args.method, args.num_patches
     )
+    if args.metrics_tag:
+        csv_path = csv_path.with_name(f"{csv_path.stem}_{args.metrics_tag}{csv_path.suffix}")
     checkpoint_path = default_vlm_checkpoint_path(
         args.manifest, args.method, args.num_patches, args.experiment_stage
     )
+    if args.metrics_tag:
+        checkpoint_path = checkpoint_path.with_name(
+            f"{checkpoint_path.stem}_{args.metrics_tag}{checkpoint_path.suffix}"
+        )
     fingerprint = _vlm_fingerprint(
         args.manifest, args.method, args.num_patches, args.limit,
         args.experiment_stage, args.dry_run,
     )
+    fingerprint["model"] = model_name
+    fingerprint["metrics_tag"] = args.metrics_tag or ""
 
     all_records = list(iter_manifest(args.manifest))[: args.limit]
     total = len(all_records)
@@ -302,7 +358,15 @@ def main() -> None:
         if ckpt and ckpt.get("fingerprint") == fingerprint:
             run_id = ckpt.get("run_id", run_id)
             rows = _load_csv_rows(csv_path)
-            completed_ids = set(ckpt.get("completed_image_ids", []))
+            csv_ids = {r["image_id"] for r in rows if r.get("image_id")}
+            ckpt_ids = set(ckpt.get("completed_image_ids", []))
+            if ckpt_ids - csv_ids:
+                print(
+                    f"[RESUME] Checkpoint lists {len(ckpt_ids)} ids but CSV has {len(csv_ids)}; "
+                    f"re-running {len(ckpt_ids - csv_ids)} missing rows.\n",
+                    flush=True,
+                )
+            completed_ids = csv_ids
             resumed = True
         elif csv_path.exists():
             rows = _load_csv_rows(csv_path)
@@ -333,18 +397,92 @@ def main() -> None:
     samples_this_session = 0
     t_run_start = time.perf_counter()
 
+    labels_df = None
+    if args.method == "oracle" or args.method == "oracle_ocr":
+        labels_path = outputs_path("labels", "patch_labels.parquet")
+        if not labels_path.exists():
+            parser.error(f"oracle VLM requires {labels_path}")
+        import pandas as pd
+        labels_df = pd.read_parquet(labels_path)
+
     for i, record in enumerate(all_records):
         image_id = record["image_id"]
         if image_id in completed_ids:
             continue
 
         print(f"  [{i+1}/{total}] {image_id} | {args.method} ...", flush=True)
-        result = _eval_one_sample(
-            record,
-            method=args.method,
-            num_patches=args.num_patches,
-            dry_run=args.dry_run,
-        )
+        patch_labels = None
+        if labels_df is not None:
+            sub = labels_df[labels_df["image_id"] == image_id]
+            patch_labels = [r.to_dict() for _, r in sub.iterrows()]
+        vlm_error = False
+        try:
+            result = _eval_one_sample(
+                record,
+                method=args.method,
+                num_patches=args.num_patches,
+                dry_run=args.dry_run,
+                patch_labels=patch_labels,
+            )
+        except BaseException as exc:
+            if args.dry_run or not is_cuda_failure(exc):
+                raise
+            print(
+                f"       !! CUDA/VLM failure on {image_id}: {exc.__class__.__name__}; "
+                "recording empty prediction, checkpointing, and exiting for resume.",
+                flush=True,
+            )
+            answers = record.get("answer", [])
+            if isinstance(answers, str):
+                answers = [answers]
+            result = {
+                "image_id": image_id,
+                "method_label": args.method,
+                "question": record.get("question", ""),
+                "answers": answers,
+                "raw_pred": "",
+                "parsed": "",
+                "em": 0.0,
+                "anls_score": 0.0,
+                "runtime": 0.0,
+                "invalid_budget": False,
+                "diag": dict(_DIAG_NA),
+                "bops_result": args.method not in ("resize", "overview_only"),
+            }
+            vlm_error = True
+            rows.append({
+                "run_id": run_id,
+                "timestamp": iso_timestamp(),
+                "experiment_stage": args.experiment_stage,
+                "image_id": image_id,
+                "method": result["method_label"],
+                "num_patches": args.num_patches,
+                "question": result["question"],
+                "ground_truth_answer": serialize_answers(result["answers"]),
+                "raw_prediction": result["raw_pred"],
+                "parsed_prediction": result["parsed"],
+                "exact_match": result["em"],
+                "anls": result["anls_score"],
+                "runtime_sec": result["runtime"],
+                "model_name": model_name,
+                "invalid_budget": result["invalid_budget"],
+                "not_applicable": False,
+                "vlm_error": vlm_error,
+                "dry_run": args.dry_run,
+                **result["diag"],
+            })
+            completed_ids.add(image_id)
+            if use_checkpoints:
+                _flush_rows(rows, csv_path)
+                _save_checkpoint(
+                    checkpoint_path=checkpoint_path,
+                    csv_path=csv_path,
+                    run_id=run_id,
+                    fingerprint=fingerprint,
+                    completed_image_ids=sorted(completed_ids),
+                    last_index=i,
+                )
+            raise SystemExit(1) from exc
 
         preview = (result["parsed"][:60] + "…") if len(result["parsed"]) > 60 else result["parsed"]
         if result["bops_result"]:
@@ -375,9 +513,10 @@ def main() -> None:
             "exact_match": result["em"],
             "anls": result["anls_score"],
             "runtime_sec": result["runtime"],
-            "model_name": VLM_MODEL_NAME,
+            "model_name": model_name,
             "invalid_budget": result["invalid_budget"],
             "not_applicable": False,
+            "vlm_error": vlm_error,
             "dry_run": args.dry_run,
             **result["diag"],
         })
