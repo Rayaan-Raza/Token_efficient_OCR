@@ -5,12 +5,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
 
 from src.answer_selection.dataset import build_long_table
 from src.answer_selection.evaluate import (
     write_p14_gate,
     write_p15_gate,
     write_p17_gate,
+    write_p18_gate,
     write_select_summary,
 )
 from src.answer_selection.ocr_presence import build_ocr_presence_cache
@@ -28,7 +34,11 @@ def main() -> None:
     p.add_argument("--metrics-tag", default="")
     p.add_argument("--models", default=",".join(MODELS))
     p.add_argument("--rebuild-ocr", action="store_true")
-    p.add_argument("--write-gates", action="store_true", help="Write P14/P15 (n=500) and P17 scale gates")
+    p.add_argument(
+        "--write-gates",
+        action="store_true",
+        help="Write DocVQA P14/P15/P17 or transfer P18 gates",
+    )
     args = p.parse_args()
 
     logger = setup_experiment_logging("raven_select_eval")
@@ -141,8 +151,13 @@ def main() -> None:
     if gate_winner is None:
         gate_winner = best
 
-    if args.write_gates and args.dataset != "docvqa":
-        logger.warning("Skipping DocVQA-specific gates for dataset=%s", args.dataset)
+    if args.write_gates and args.dataset != "docvqa" and gate_winner:
+        p18 = write_p18_gate(gate_winner, dataset=args.dataset)
+        overview["p18_status"] = p18.metrics.get("status")
+        overview["p18_pass"] = p18.passed
+        overview["gate_model"] = gate_winner["model"]
+        overview["gate_anls"] = gate_winner["anls"]
+        overview_path.write_text(json.dumps(overview, indent=2), encoding="utf-8")
     elif args.write_gates and gate_winner:
         if args.n == 500:
             write_p14_gate(gate_winner)

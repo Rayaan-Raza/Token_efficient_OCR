@@ -169,10 +169,70 @@ def write_p17_gate(result: dict[str, Any], *, n: int | None = None) -> RevGateRe
     return gate
 
 
+def write_p18_gate(result: dict[str, Any], *, dataset: str) -> RevGateResult:
+    """P18 frozen-rule transfer gate for a non-DocVQA dataset.
+
+    FULL TRANSFER requires significant gains over resize and shortest.
+    PARTIAL TRANSFER requires a significant gain over resize only.
+    """
+    if dataset == "docvqa":
+        raise ValueError("P18 is defined only for transfer datasets")
+
+    vs_r = result.get("vs_resize", {})
+    vs_s = result.get("vs_shortest_nonempty", {})
+    beats_resize = bool(result.get("beats_resize")) and bool(
+        vs_r.get("ci_lower_positive")
+    )
+    beats_short = bool(result.get("beats_shortest_nonempty")) and bool(
+        vs_s.get("ci_lower_positive")
+    )
+    if beats_resize and beats_short:
+        status = "FULL TRANSFER"
+        passed = True
+    elif beats_resize:
+        status = "PARTIAL TRANSFER"
+        passed = False
+    else:
+        status = "FAIL"
+        passed = False
+
+    n_eff = int(result.get("n") or 0)
+    gate = RevGateResult(
+        name="P18_dataset_transfer",
+        passed=passed,
+        metrics={
+            "dataset": dataset,
+            "n": n_eff,
+            "requested_n": result.get("requested_n"),
+            "status": status,
+            "model": result.get("model"),
+            "method_version": result.get("method_version")
+            or (result.get("method") or {}).get("method_version"),
+            "raven_select_anls": result.get("anls"),
+            "raven_select_em": result.get("em"),
+            "vs_resize": vs_r,
+            "vs_shortest_nonempty": vs_s,
+            "beats_resize_significant": beats_resize,
+            "beats_shortest_significant": beats_short,
+        },
+        thresholds={
+            "ci_lower_vs_resize_gt_0": True,
+            "ci_lower_vs_shortest_gt_0": True,
+        },
+        message=(
+            f"{status}: dataset={dataset} n={n_eff} anls={result.get('anls')} "
+            f"vs_resize_ci={vs_r.get('ci95')} vs_short_ci={vs_s.get('ci95')}"
+        ),
+    )
+    write_gate_report(f"P18_dataset_transfer_{dataset}_n{n_eff}", gate)
+    return gate
+
+
 __all__ = [
     "write_p14_gate",
     "write_p15_gate",
     "write_p16_gate",
     "write_p17_gate",
+    "write_p18_gate",
     "write_select_summary",
 ]

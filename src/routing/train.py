@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Sequence
 
 import lightgbm as lgb
@@ -30,6 +31,7 @@ def load_methods(
 ) -> pd.DataFrame:
     tag = f"_{metrics_tag}" if metrics_tag else ""
     frames = {}
+    method_sizes: dict[str, int] = {}
     for m in methods:
         path = outputs_path(
             "metrics",
@@ -39,13 +41,27 @@ def load_methods(
             ["image_id", "question", "ground_truth_answer", "parsed_prediction", "anls", "exact_match"]
         ].copy()
         frames[m] = df.drop_duplicates("image_id").set_index("image_id")
+        method_sizes[m] = len(frames[m])
     ids = sorted(set.intersection(*[set(f.index) for f in frames.values()]))
+    if len(ids) != n or any(size != n for size in method_sizes.values()):
+        warnings.warn(
+            f"{dataset}: requested n={n}, effective intersection n={len(ids)}; "
+            f"per-method rows={method_sizes}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     base = frames[methods[0]].loc[ids][["question", "ground_truth_answer"]].copy()
     for m in methods:
         base[f"anls__{m}"] = frames[m].loc[ids]["anls"].astype(float).values
         base[f"em__{m}"] = frames[m].loc[ids]["exact_match"].astype(float).values
         base[f"pred__{m}"] = frames[m].loc[ids]["parsed_prediction"].fillna("").astype(str).values
     base.index = ids
+    base.attrs.update({
+        "requested_n": n,
+        "effective_n": len(ids),
+        "method_sizes": method_sizes,
+        "dataset": dataset,
+    })
     return base
 
 

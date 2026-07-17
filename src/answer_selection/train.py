@@ -154,6 +154,7 @@ def _pack_result(
 ) -> dict:
     anls_arr = np.array(anls_vec, dtype=float)
     em_arr = np.array(em_vec, dtype=float)
+    effective_n = len(anls_arr)
     resize_anls = np.array(bases["resize"]["anls_vec"], dtype=float)
     short_anls = np.array(bases["shortest_nonempty"]["anls_vec"], dtype=float)
     d_resize = bootstrap_ci((anls_arr - resize_anls).tolist())
@@ -170,7 +171,8 @@ def _pack_result(
         "rule_ocr_present_shortest",
     }
     return {
-        "n": n,
+        "n": effective_n,
+        "requested_n": n,
         "dataset": dataset,
         "variant": "raven_select",
         "method": method_stamp(
