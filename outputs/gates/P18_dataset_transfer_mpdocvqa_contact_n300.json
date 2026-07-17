@@ -1,0 +1,38 @@
+{
+  "name": "P18_dataset_transfer",
+  "passed": false,
+  "metrics": {
+    "dataset": "mpdocvqa_contact",
+    "n": 300,
+    "requested_n": 300,
+    "status": "FAIL",
+    "model": "raven_select_rule",
+    "method_version": "1.0.0",
+    "raven_select_anls": 0.3359550633054172,
+    "raven_select_em": 0.28,
+    "vs_resize": {
+      "delta": 0.010803633363415974,
+      "ci95": [
+        -0.009531526771336554,
+        0.03304250129399586
+      ],
+      "ci_lower_positive": false
+    },
+    "vs_shortest_nonempty": {
+      "delta": 0.011559178743961354,
+      "ci95": [
+        0.0023875,
+        0.02380996376811594
+      ],
+      "ci_lower_positive": true
+    },
+    "beats_resize_significant": false,
+    "beats_shortest_significant": true
+  },
+  "thresholds": {
+    "ci_lower_vs_resize_gt_0": true,
+    "ci_lower_vs_shortest_gt_0": true
+  },
+  "message": "FAIL: dataset=mpdocvqa_contact n=300 anls=0.3359550633054172 vs_resize_ci=[-0.009531526771336554, 0.03304250129399586] vs_short_ci=[0.0023875, 0.02380996376811594]",
+  "artifacts": null
+}

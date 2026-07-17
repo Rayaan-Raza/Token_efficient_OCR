@@ -1,0 +1,172 @@
+{
+  "n": 300,
+  "dataset": "mpdocvqa_contact",
+  "method": {
+    "method_id": "raven_select",
+    "method_version": "1.0.0",
+    "method_name": "RAVEN-Select",
+    "readers": [
+      "resize",
+      "bm25",
+      "ler_bops"
+    ],
+    "tie_break_order": [
+      "resize",
+      "bm25",
+      "ler_bops"
+    ],
+    "normalization": "conservative_lowercase_punct_ws",
+    "grounding": "page_or_route_patch_ocr_substring",
+    "selection": "shortest_ocr_grounded_else_shortest_nonempty",
+    "vlm_calls": 3,
+    "production_flags": {
+      "use_ocr": true,
+      "use_length": true,
+      "use_answer_type": false,
+      "use_consensus": false
+    },
+    "leakage_excluded": [
+      "gold_answer",
+      "anls_to_gold",
+      "em_to_gold",
+      "answer_in_full_image_ocr",
+      "answer_in_selected_patch_ocr",
+      "oracle_route"
+    ],
+    "role": "production",
+    "comparator_model": "raven_select_rule"
+  },
+  "method_version": "1.0.0",
+  "best_model": "raven_select_rule",
+  "best_anls": 0.3359550633054172,
+  "best_em": 0.28,
+  "models": [
+    {
+      "model": "raven_select_rule",
+      "anls": 0.3359550633054172,
+      "em": 0.28,
+      "beats_shortest": true,
+      "beats_resize": true,
+      "vs_shortest_ci": [
+        0.0023875,
+        0.02380996376811594
+      ],
+      "vs_resize_ci": [
+        -0.009531526771336554,
+        0.03304250129399586
+      ],
+      "route_counts": {
+        "resize": 222,
+        "bm25": 47,
+        "ler_bops": 31
+      },
+      "baselines": {
+        "resize": {
+          "anls": 0.32515142994200125,
+          "em": 0.25666666666666665,
+          "route_counts": {
+            "resize": 300,
+            "bm25": 0,
+            "ler_bops": 0
+          }
+        },
+        "bm25": {
+          "anls": 0.3065207933583893,
+          "em": 0.23666666666666666,
+          "route_counts": {
+            "resize": 0,
+            "bm25": 300,
+            "ler_bops": 0
+          }
+        },
+        "ler_bops": {
+          "anls": 0.32875089267733354,
+          "em": 0.26,
+          "route_counts": {
+            "resize": 0,
+            "bm25": 0,
+            "ler_bops": 300
+          }
+        },
+        "shortest_nonempty": {
+          "anls": 0.3243958845614558,
+          "em": 0.26,
+          "route_counts": {
+            "resize": 241,
+            "bm25": 32,
+            "ler_bops": 27
+          }
+        },
+        "majority": {
+          "anls": 0.32365448244505374,
+          "em": 0.25,
+          "route_counts": {
+            "resize": 271,
+            "bm25": 29,
+            "ler_bops": 0
+          }
+        },
+        "resize_default": {
+          "anls": 0.32515142994200125,
+          "em": 0.25666666666666665,
+          "route_counts": {
+            "resize": 300,
+            "bm25": 0,
+            "ler_bops": 0
+          }
+        },
+        "bm25_default": {
+          "anls": 0.3065207933583893,
+          "em": 0.23666666666666666,
+          "route_counts": {
+            "resize": 1,
+            "bm25": 299,
+            "ler_bops": 0
+          }
+        },
+        "answer_type_shortest": {
+          "anls": 0.32518953535510664,
+          "em": 0.25666666666666665,
+          "route_counts": {
+            "resize": 236,
+            "bm25": 37,
+            "ler_bops": 27
+          }
+        },
+        "ocr_present_shortest": {
+          "anls": 0.3359550633054172,
+          "em": 0.28,
+          "route_counts": {
+            "resize": 222,
+            "bm25": 47,
+            "ler_bops": 31
+          }
+        },
+        "consensus_first": {
+          "anls": 0.32118953535510664,
+          "em": 0.25333333333333335,
+          "route_counts": {
+            "resize": 238,
+            "bm25": 46,
+            "ler_bops": 16
+          }
+        },
+        "raven_select_rule": {
+          "anls": 0.3359550633054172,
+          "em": 0.28,
+          "route_counts": {
+            "resize": 222,
+            "bm25": 47,
+            "ler_bops": 31
+          }
+        }
+      },
+      "summary_path": "C:\\Users\\rayaan\\Desktop\\OCR_paper\\outputs\\metrics\\raven_select_raven_select_rule_mpdocvqa_contact_n300.json"
+    }
+  ],
+  "table": "C:\\Users\\rayaan\\Desktop\\OCR_paper\\outputs\\metrics\\raven_select_main_table_mpdocvqa_contact_n300.csv",
+  "p18_status": "FAIL",
+  "p18_pass": false,
+  "gate_model": "raven_select_rule",
+  "gate_anls": 0.3359550633054172
+}
