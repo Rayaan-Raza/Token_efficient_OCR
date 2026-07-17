@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evaluate RAVEN-Select models + equal-cost baselines on DocVQA n=300/500."""
+"""Evaluate RAVEN-Select models + equal-cost baselines."""
 
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ MODELS = ["raven_select_rule", "ocr_present_shortest", "ridge", "logistic", "lgb
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--n", type=int, default=500)
+    p.add_argument("--dataset", default="docvqa")
     p.add_argument("--metrics-tag", default="")
     p.add_argument("--models", default=",".join(MODELS))
     p.add_argument("--rebuild-ocr", action="store_true")
@@ -32,16 +33,25 @@ def main() -> None:
 
     logger = setup_experiment_logging("raven_select_eval")
     suffix = f"_{args.metrics_tag}" if args.metrics_tag else ""
+    dataset_suffix = "" if args.dataset == "docvqa" else f"_{args.dataset}"
     ocr_path = outputs_path(
-        "metrics", f"raven_select_ocr_presence_n{args.n}{suffix}.parquet"
+        "metrics",
+        f"raven_select_ocr_presence{dataset_suffix}_n{args.n}{suffix}.parquet",
     )
     if args.rebuild_ocr or not ocr_path.exists():
         logger.info("Building OCR presence cache...")
-        build_ocr_presence_cache(args.n, metrics_tag=args.metrics_tag)
+        build_ocr_presence_cache(
+            args.n, metrics_tag=args.metrics_tag, dataset=args.dataset
+        )
 
-    logger.info("Building long feature table n=%d", args.n)
-    long_df = build_long_table(args.n, metrics_tag=args.metrics_tag)
-    long_path = outputs_path("metrics", f"raven_select_long_n{args.n}{suffix}.parquet")
+    logger.info("Building long feature table dataset=%s n=%d", args.dataset, args.n)
+    long_df = build_long_table(
+        args.n, metrics_tag=args.metrics_tag, dataset=args.dataset
+    )
+    long_path = outputs_path(
+        "metrics",
+        f"raven_select_long{dataset_suffix}_n{args.n}{suffix}.parquet",
+    )
     long_df.to_parquet(long_path, index=False)
 
     results = []
@@ -53,8 +63,11 @@ def main() -> None:
             model_name=model,
             metrics_tag=args.metrics_tag,
             long_df=long_df,
+            dataset=args.dataset,
         )
-        path = write_select_summary(r, tag=args.metrics_tag)
+        path = write_select_summary(
+            r, tag=args.metrics_tag, dataset=args.dataset
+        )
         logger.info(
             "%s ANLS=%.4f EM=%.4f vs_short=%.4f (ci_lo=%.4f) vs_resize_ci_lo=%.4f",
             model,
@@ -93,7 +106,8 @@ def main() -> None:
                 "kind": "learned",
             })
     table_path = outputs_path(
-        "metrics", f"raven_select_main_table_n{args.n}{suffix}.csv"
+        "metrics",
+        f"raven_select_main_table{dataset_suffix}_n{args.n}{suffix}.csv",
     )
     with table_path.open("w", encoding="utf-8", newline="") as f:
         f.write("name,anls,em,kind\n")
@@ -102,6 +116,7 @@ def main() -> None:
 
     overview = {
         "n": args.n,
+        "dataset": args.dataset,
         "method": (best or {}).get("method") if best else None,
         "method_version": (best or {}).get("method_version") if best else None,
         "best_model": best["model"] if best else None,
@@ -111,7 +126,8 @@ def main() -> None:
         "table": str(table_path),
     }
     overview_path = outputs_path(
-        "metrics", f"raven_select_overview_n{args.n}{suffix}.json"
+        "metrics",
+        f"raven_select_overview{dataset_suffix}_n{args.n}{suffix}.json",
     )
     overview_path.write_text(json.dumps(overview, indent=2), encoding="utf-8")
 
@@ -125,7 +141,9 @@ def main() -> None:
     if gate_winner is None:
         gate_winner = best
 
-    if args.write_gates and gate_winner:
+    if args.write_gates and args.dataset != "docvqa":
+        logger.warning("Skipping DocVQA-specific gates for dataset=%s", args.dataset)
+    elif args.write_gates and gate_winner:
         if args.n == 500:
             write_p14_gate(gate_winner)
             write_p15_gate(gate_winner)

@@ -40,10 +40,11 @@ def build_ocr_presence_cache(
     num_patches: int = 2,
     out_path: Path | None = None,
     ocr_engine: str | None = None,
+    dataset: str = "docvqa",
 ) -> Path:
     """Write model-tagged OCR-presence rows for each (image_id, route)."""
     methods = list(methods or DEFAULT_METHODS)
-    data = load_methods(n, methods, metrics_tag=metrics_tag)
+    data = load_methods(n, methods, metrics_tag=metrics_tag, dataset=dataset)
     engine = ocr_engine or DEFAULT_OCR_ENGINE
     rows = []
     missing_full = 0
@@ -75,8 +76,10 @@ def build_ocr_presence_cache(
             })
     suffix = f"_{metrics_tag}" if metrics_tag else ""
     engine_suffix = f"_{engine}" if engine != DEFAULT_OCR_ENGINE else ""
+    ds = "" if dataset == "docvqa" else f"_{dataset}"
     out = out_path or outputs_path(
-        "metrics", f"raven_select_ocr_presence_n{n}{engine_suffix}{suffix}.parquet"
+        "metrics",
+        f"raven_select_ocr_presence{ds}_n{n}{engine_suffix}{suffix}.parquet",
     )
     out.parent.mkdir(parents=True, exist_ok=True)
     df = pd.DataFrame(rows)

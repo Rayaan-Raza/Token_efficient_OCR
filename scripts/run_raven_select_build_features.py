@@ -15,19 +15,26 @@ from src.utils.paths import outputs_path
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--n", type=int, default=500)
+    p.add_argument("--dataset", default="docvqa")
     p.add_argument("--metrics-tag", default="")
     p.add_argument("--skip-long-table", action="store_true")
     args = p.parse_args()
 
     logger = setup_experiment_logging("raven_select_features")
-    ocr_path = build_ocr_presence_cache(args.n, metrics_tag=args.metrics_tag)
+    ocr_path = build_ocr_presence_cache(
+        args.n, metrics_tag=args.metrics_tag, dataset=args.dataset
+    )
     logger.info("OCR presence cache: %s", ocr_path)
 
     if not args.skip_long_table:
-        long_df = build_long_table(args.n, metrics_tag=args.metrics_tag)
+        long_df = build_long_table(
+            args.n, metrics_tag=args.metrics_tag, dataset=args.dataset
+        )
         suffix = f"_{args.metrics_tag}" if args.metrics_tag else ""
+        dataset_suffix = "" if args.dataset == "docvqa" else f"_{args.dataset}"
         out = outputs_path(
-            "metrics", f"raven_select_long_n{args.n}{suffix}.parquet"
+            "metrics",
+            f"raven_select_long{dataset_suffix}_n{args.n}{suffix}.parquet",
         )
         long_df.to_parquet(out, index=False)
         logger.info("Long table %s rows -> %s", len(long_df), out)

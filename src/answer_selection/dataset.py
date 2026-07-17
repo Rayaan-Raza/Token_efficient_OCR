@@ -36,9 +36,13 @@ def _load_ocr_presence(
     path: Path | None = None,
     *,
     metrics_tag: str = "",
+    dataset: str = "docvqa",
 ) -> pd.DataFrame | None:
     suffix = f"_{metrics_tag}" if metrics_tag else ""
-    p = path or outputs_path("metrics", f"raven_select_ocr_presence_n{n}{suffix}.parquet")
+    ds = "" if dataset == "docvqa" else f"_{dataset}"
+    p = path or outputs_path(
+        "metrics", f"raven_select_ocr_presence{ds}_n{n}{suffix}.parquet"
+    )
     if not p.exists():
         return None
     df = pd.read_parquet(p)
@@ -52,6 +56,7 @@ def build_long_table(
     metrics_tag: str = "",
     ocr_presence_path: Path | None = None,
     data: pd.DataFrame | None = None,
+    dataset: str = "docvqa",
 ) -> pd.DataFrame:
     """Expand wide method frame into one row per (image_id, route).
 
@@ -60,9 +65,11 @@ def build_long_table(
     """
     methods = list(methods or DEFAULT_METHODS)
     if data is None:
-        data = load_methods(n, methods, metrics_tag=metrics_tag)
-    pre = _load_pre_scores(n)
-    ocr = _load_ocr_presence(n, ocr_presence_path, metrics_tag=metrics_tag)
+        data = load_methods(n, methods, metrics_tag=metrics_tag, dataset=dataset)
+    pre = _load_pre_scores(n) if dataset == "docvqa" else None
+    ocr = _load_ocr_presence(
+        n, ocr_presence_path, metrics_tag=metrics_tag, dataset=dataset
+    )
     keys = feature_keys(methods)
 
     rows: list[dict] = []

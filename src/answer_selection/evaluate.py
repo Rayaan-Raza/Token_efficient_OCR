@@ -9,11 +9,16 @@ from src.extraction.gates import RevGateResult, write_gate_report
 from src.utils.paths import outputs_path
 
 
-def write_select_summary(result: dict[str, Any], *, tag: str = "") -> str:
+def write_select_summary(
+    result: dict[str, Any], *, tag: str = "", dataset: str = "docvqa"
+) -> str:
     n = result["n"]
     model = result.get("model", "lgbm_reg")
     suffix = f"_{tag}" if tag else ""
-    path = outputs_path("metrics", f"raven_select_{model}_n{n}{suffix}.json")
+    dataset_suffix = "" if dataset == "docvqa" else f"_{dataset}"
+    path = outputs_path(
+        "metrics", f"raven_select_{model}{dataset_suffix}_n{n}{suffix}.json"
+    )
     # Drop large vectors from disk summary optionally keep them
     slim = {k: v for k, v in result.items() if k not in ("anls_vec", "em_vec")}
     path.write_text(json.dumps(slim, indent=2), encoding="utf-8")
@@ -112,7 +117,7 @@ def write_p17_gate(result: dict[str, Any], *, n: int | None = None) -> RevGateRe
     """P17 DocVQA scale gate: PASS / PARTIAL / FAIL vs resize and shortest.
 
     PASS: beats both with CI lower > 0.
-    PARTIAL: significantly beats resize only.
+    PARTIAL: significantly beats exactly one of resize / shortest_nonempty.
     FAIL: significantly beats neither.
     """
     n_eff = int(n if n is not None else result.get("n") or 0)
@@ -125,7 +130,8 @@ def write_p17_gate(result: dict[str, Any], *, n: int | None = None) -> RevGateRe
     if beats_resize and beats_short:
         status = "PASS"
         passed = True
-    elif beats_resize:
+    elif beats_resize or beats_short:
+        # One of the two significance targets holds (resize-only or shortest-only).
         status = "PARTIAL"
         passed = False
     else:

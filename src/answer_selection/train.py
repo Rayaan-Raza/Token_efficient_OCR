@@ -150,6 +150,7 @@ def _pack_result(
     *,
     drop_groups: Sequence[str] | None = None,
     feature_keys: list[str] | None = None,
+    dataset: str = "docvqa",
 ) -> dict:
     anls_arr = np.array(anls_vec, dtype=float)
     em_arr = np.array(em_vec, dtype=float)
@@ -170,6 +171,7 @@ def _pack_result(
     }
     return {
         "n": n,
+        "dataset": dataset,
         "variant": "raven_select",
         "method": method_stamp(
             role="production" if is_production and not drop_groups else "comparator",
@@ -219,14 +221,15 @@ def evaluate_selector(
     metrics_tag: str = "",
     default: str = "resize",
     long_df: pd.DataFrame | None = None,
+    dataset: str = "docvqa",
 ) -> dict:
     """Full RAVEN-Select evaluation with comparisons vs resize and shortest_nonempty."""
     from src.answer_selection.baselines import evaluate_baselines
     from src.answer_selection.dataset import _load_ocr_presence
 
     methods = list(methods or DEFAULT_METHODS)
-    data = load_methods(n, methods, metrics_tag=metrics_tag)
-    ocr = _load_ocr_presence(n, metrics_tag=metrics_tag)
+    data = load_methods(n, methods, metrics_tag=metrics_tag, dataset=dataset)
+    ocr = _load_ocr_presence(n, metrics_tag=metrics_tag, dataset=dataset)
     bases = evaluate_baselines(data, methods, ocr_presence=ocr, default=default)
 
     if model_name in ("ocr_present_shortest", "rule_ocr_present_shortest", "raven_select_rule", "rule", "raven_select"):
@@ -251,10 +254,13 @@ def evaluate_selector(
             n, "raven_select_rule", methods,
             b["anls_vec"], b["em_vec"], b["route_counts"], bases,
             drop_groups=drop_groups,
+            dataset=dataset,
         )
 
     if long_df is None:
-        long_df = build_long_table(n, methods, metrics_tag=metrics_tag, data=data)
+        long_df = build_long_table(
+            n, methods, metrics_tag=metrics_tag, data=data, dataset=dataset
+        )
 
     sel = oof_select(
         long_df,
@@ -268,4 +274,5 @@ def evaluate_selector(
         sel["anls_vec"], sel["em_vec"], sel["route_counts"], bases,
         drop_groups=drop_groups,
         feature_keys=sel["feature_keys"],
+        dataset=dataset,
     )
