@@ -1,9 +1,14 @@
 # RAVEN-Select Journal Workspace
 
-**Title:** RAVEN-Select: OCR-Grounded Answer Selection for Budgeted Document VQA
+**Title:** RAVEN-Select: Value and Limits of OCR-Grounded Answer Selection for Budgeted Document VQA
 
-This folder is the **journal upgrade** workspace. The frozen method-paper
+This folder is the **journal upgrade** workspace (frozen). The method-paper
 snapshot remains in [`../raven_select_method_docvqa`](../raven_select_method_docvqa).
+
+**Restore point:** [`RESTORE_POINT.md`](RESTORE_POINT.md) (git `0faa3c3`).
+
+**Next experiment (separate):** OCR-protected page compression lives in
+[`../raven_select_seam`](../raven_select_seam) and must not retune v1.0.0.
 
 ## Layout
 

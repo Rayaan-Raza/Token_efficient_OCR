@@ -39,9 +39,14 @@ def vlm_patch_suffix(method: str, num_patches: int) -> str:
         num_patches: Configured patch budget.
 
     Returns:
-        ``single`` for resize, ``k0`` for overview_only, else ``k{N}``.
+        ``single`` for full-page methods, ``k0`` for overview_only, else ``k{N}``.
     """
-    if method == "resize":
+    if method in {
+        "resize",
+        "margin_crop_resize",
+        "ws_compress_resize",
+        "ocr_seam_resize",
+    }:
         return "single"
     if method == "overview_only":
         return "k0"

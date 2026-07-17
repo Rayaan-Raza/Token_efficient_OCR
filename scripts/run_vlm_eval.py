@@ -30,9 +30,11 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from src.data.dataset_loader import iter_manifest
 from src.preprocessing.bops import run_bops
+from src.preprocessing.ocr_page_compress import METHOD_LABELS, compress_fullpage
 from src.preprocessing.patch_grid import Patch
 from src.preprocessing.resize import resize_to_area_ratio
 from src.preprocessing.selectors import select_patches
+from src.utils.ocr_cache import load_cached_ocr_boxes
 from src.utils.experiment_io import (
     default_vlm_checkpoint_path,
     default_vlm_metrics_path,
@@ -208,6 +210,16 @@ def _eval_one_sample(
         resized, meta = resize_to_area_ratio(image, 0.25)
         invalid_budget = bool(meta.get("invalid_budget", False))
         raw_pred, parsed = run_vlm_single(resized, question)
+    elif method in METHOD_LABELS.values():
+        variant = next(k for k, v in METHOD_LABELS.items() if v == method)
+        boxes = load_cached_ocr_boxes(image_id)
+        result = compress_fullpage(image, variant, ocr_boxes=boxes, area_ratio=0.25)
+        invalid_budget = bool(result.meta.get("invalid_budget", False))
+        # Persist audit image (png ignored by git via .gitignore).
+        audit_dir = outputs_path("transformed_images", method)
+        audit_dir.mkdir(parents=True, exist_ok=True)
+        result.image.save(audit_dir / f"{image_id}.png")
+        raw_pred, parsed = run_vlm_single(result.image, question)
     elif method == "overview_only":
         bops_result = run_bops(image, 0, mode="overview_only")
         invalid_budget = bool(bops_result["meta"].get("invalid_budget", False))
@@ -283,6 +295,7 @@ def main() -> None:
             "learned_logreg", "learned_lgbm_strict", "learned_lgbm_any",
             "learned_lgbm_combined", "learned_lgbm_qbops_hybrid",
             "learned_lgbm_strict_ocr", "bm25_only_ocr", "oracle", "oracle_ocr",
+            "margin_crop_resize", "ws_compress_resize", "ocr_seam_resize",
         ],
     )
     parser.add_argument("--num-patches", type=int, default=4, help="Patch budget for patch modes")
@@ -447,7 +460,13 @@ def main() -> None:
                 "runtime": 0.0,
                 "invalid_budget": False,
                 "diag": dict(_DIAG_NA),
-                "bops_result": args.method not in ("resize", "overview_only"),
+                "bops_result": args.method not in (
+                    "resize",
+                    "overview_only",
+                    "margin_crop_resize",
+                    "ws_compress_resize",
+                    "ocr_seam_resize",
+                ),
             }
             vlm_error = True
             rows.append({
