@@ -10,7 +10,7 @@ the full available validation split **only if** the n=1000 gate PASSes.
 | Outcome | Condition |
 |---------|-----------|
 | **PASS** | Beats resize and shortest_nonempty; both paired 95% CI lower bounds > 0 |
-| **PARTIAL** | Significantly beats resize only |
+| **PARTIAL** | Significantly beats exactly one of resize / shortest_nonempty |
 | **FAIL** | Significantly beats neither |
 
 ## Commands / config
@@ -20,7 +20,7 @@ the full available validation split **only if** the n=1000 gate PASSes.
 python scripts/download_docvqa_hf.py --num-samples 1000
 python scripts/build_docvqa_manifests.py --source Data/manifests/docvqa_val_1000.jsonl --sizes 100 300 500 1000
 python scripts/run_fullpage_ocr.py --manifest Data/manifests/docvqa_1000.jsonl
-python scripts/run_raven_n500_driver.py --limit 1000 --manifest Data/manifests/docvqa_1000.jsonl
+python scripts/run_raven_select_scale_vlm.py --limit 1000 --manifest Data/manifests/docvqa_1000.jsonl
 python scripts/run_raven_select_build_features.py --n 1000
 python scripts/run_raven_select_eval.py --n 1000 --write-gates
 python scripts/run_raven_select_paper_ablations.py --n 1000
@@ -40,20 +40,32 @@ No gold answers, ANLS/EM, oracle routes, or gold-derived OCR flags at inference.
 
 - `outputs/metrics/raven_select_overview_n1000.json`
 - `outputs/metrics/raven_select_main_table_n1000.csv`
-- `outputs/gates/P17_docvqa_scale.json` (when implemented)
+- `outputs/gates/P17_docvqa_scale_n1000.json`
+- `outputs/gates/P17_docvqa_scale.json`
 
-## Results
+## Results (method 1.0.0, Qwen2.5-VL-3B)
 
 | Method | ANLS | EM | VLM calls |
 |--------|------|----|-----------|
-| resize | — | — | 1 |
-| BM25 | — | — | 1 |
-| LER-BOPS | — | — | 1 |
-| shortest nonempty | — | — | 3 |
-| best learned selector | — | — | 3 |
-| RAVEN-Select | — | — | 3 |
+| resize | 0.8149 | 0.706 | 1 |
+| BM25 | 0.7796 | 0.674 | 1 |
+| LER-BOPS | 0.7873 | 0.681 | 1 |
+| shortest nonempty | 0.8173 | 0.708 | 3 |
+| RAVEN-Select | **0.8234** | **0.723** | 3 |
 
-Status: **IN PROGRESS** — DocVQA n=1000 images+OCR ready; VLM three-reader eval resumed from seeded n=500 CSVs.
+Paired 95% CI deltas (RAVEN-Select − baseline):
+
+| Contrast | Δ ANLS | 95% CI | CI lower > 0 |
+|----------|--------|--------|--------------|
+| vs resize | +0.0086 | [−0.0019, +0.0199] | no |
+| vs shortest nonempty | +0.0061 | [+0.0008, +0.0123] | **yes** |
+
+Route mix (RAVEN-Select): resize 915 / BM25 62 / LER-BOPS 23.
+
+Status: **PARTIAL** — significant gain vs shortest nonempty; gain vs resize is positive but not significant at n=1000.
+**Full validation is blocked** until a PASS (both CI lowers > 0).
+
+Notes: 2 BM25 and 2 LER samples recorded empty predictions after CUDA device-side asserts (`vlm_error=True`).
 
 ## Commit
 

@@ -1,0 +1,179 @@
+{
+  "n": 1000,
+  "variant": "raven_select",
+  "method": {
+    "method_id": "raven_select",
+    "method_version": "1.0.0",
+    "method_name": "RAVEN-Select",
+    "readers": [
+      "resize",
+      "bm25",
+      "ler_bops"
+    ],
+    "tie_break_order": [
+      "resize",
+      "bm25",
+      "ler_bops"
+    ],
+    "normalization": "conservative_lowercase_punct_ws",
+    "grounding": "page_or_route_patch_ocr_substring",
+    "selection": "shortest_ocr_grounded_else_shortest_nonempty",
+    "vlm_calls": 3,
+    "production_flags": {
+      "use_ocr": true,
+      "use_length": true,
+      "use_answer_type": false,
+      "use_consensus": false
+    },
+    "leakage_excluded": [
+      "gold_answer",
+      "anls_to_gold",
+      "em_to_gold",
+      "answer_in_full_image_ocr",
+      "answer_in_selected_patch_ocr",
+      "oracle_route"
+    ],
+    "role": "production",
+    "comparator_model": "raven_select_rule"
+  },
+  "method_version": "1.0.0",
+  "vlm_calls": 3,
+  "model": "raven_select_rule",
+  "methods": [
+    "resize",
+    "bm25",
+    "ler_bops"
+  ],
+  "drop_groups": [],
+  "anls": 0.8234242785070972,
+  "em": 0.723,
+  "route_counts": {
+    "resize": 915,
+    "bm25": 62,
+    "ler_bops": 23
+  },
+  "baselines": {
+    "resize": {
+      "anls": 0.814861455803823,
+      "em": 0.706,
+      "route_counts": {
+        "resize": 1000,
+        "bm25": 0,
+        "ler_bops": 0
+      }
+    },
+    "bm25": {
+      "anls": 0.7795851507138037,
+      "em": 0.674,
+      "route_counts": {
+        "resize": 0,
+        "bm25": 1000,
+        "ler_bops": 0
+      }
+    },
+    "ler_bops": {
+      "anls": 0.7872889266944587,
+      "em": 0.681,
+      "route_counts": {
+        "resize": 0,
+        "bm25": 0,
+        "ler_bops": 1000
+      }
+    },
+    "shortest_nonempty": {
+      "anls": 0.8173053174028421,
+      "em": 0.708,
+      "route_counts": {
+        "resize": 931,
+        "bm25": 50,
+        "ler_bops": 19
+      }
+    },
+    "majority": {
+      "anls": 0.7950657441588971,
+      "em": 0.69,
+      "route_counts": {
+        "resize": 861,
+        "bm25": 139,
+        "ler_bops": 0
+      }
+    },
+    "resize_default": {
+      "anls": 0.814861455803823,
+      "em": 0.706,
+      "route_counts": {
+        "resize": 1000,
+        "bm25": 0,
+        "ler_bops": 0
+      }
+    },
+    "bm25_default": {
+      "anls": 0.7815851507138037,
+      "em": 0.676,
+      "route_counts": {
+        "resize": 2,
+        "bm25": 998,
+        "ler_bops": 0
+      }
+    },
+    "answer_type_shortest": {
+      "anls": 0.8158290472961373,
+      "em": 0.706,
+      "route_counts": {
+        "resize": 927,
+        "bm25": 53,
+        "ler_bops": 20
+      }
+    },
+    "ocr_present_shortest": {
+      "anls": 0.8234242785070972,
+      "em": 0.723,
+      "route_counts": {
+        "resize": 915,
+        "bm25": 62,
+        "ler_bops": 23
+      }
+    },
+    "consensus_first": {
+      "anls": 0.7969171208821819,
+      "em": 0.693,
+      "route_counts": {
+        "resize": 841,
+        "bm25": 149,
+        "ler_bops": 10
+      }
+    },
+    "raven_select_rule": {
+      "anls": 0.8234242785070972,
+      "em": 0.723,
+      "route_counts": {
+        "resize": 915,
+        "bm25": 62,
+        "ler_bops": 23
+      }
+    }
+  },
+  "vs_resize": {
+    "delta": 0.008562822703274164,
+    "ci95": [
+      -0.0018945824134449147,
+      0.0198724323430853
+    ],
+    "ci_lower_positive": false
+  },
+  "vs_shortest_nonempty": {
+    "delta": 0.0061189611042552225,
+    "ci95": [
+      0.0008203696466931762,
+      0.01234097256501668
+    ],
+    "ci_lower_positive": true
+  },
+  "beats_resize": true,
+  "beats_shortest_nonempty": true,
+  "target_anls_met": true,
+  "target_em_met": true,
+  "feature_keys": [],
+  "p14_pass": true,
+  "p15_pass": false
+}

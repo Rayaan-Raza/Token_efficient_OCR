@@ -1,0 +1,37 @@
+{
+  "name": "P17_docvqa_scale",
+  "passed": false,
+  "metrics": {
+    "n": 500,
+    "status": "PARTIAL",
+    "model": "raven_select_rule",
+    "method_version": "1.0.0",
+    "raven_select_anls": 0.6128347936170288,
+    "raven_select_em": 0.544,
+    "vs_resize": {
+      "delta": 0.021526831357418237,
+      "ci95": [
+        0.004890526273414963,
+        0.03934110169277729
+      ],
+      "ci_lower_positive": true
+    },
+    "vs_shortest_nonempty": {
+      "delta": 0.00045098039215686294,
+      "ci95": [
+        0.0,
+        0.001333333333333333
+      ],
+      "ci_lower_positive": false
+    },
+    "beats_resize_significant": true,
+    "beats_shortest_significant": false
+  },
+  "thresholds": {
+    "ci_lower_vs_resize_gt_0": true,
+    "ci_lower_vs_shortest_gt_0": true,
+    "n_min_for_full_validation": 1000
+  },
+  "message": "PARTIAL: n=500 anls=0.6128347936170288 vs_resize_ci=[0.004890526273414963, 0.03934110169277729] vs_short_ci=[0.0, 0.001333333333333333]",
+  "artifacts": null
+}
