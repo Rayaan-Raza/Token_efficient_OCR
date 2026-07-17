@@ -103,13 +103,61 @@ def parse_args() -> argparse.Namespace:
 
 
 def _normalize_answers(value: object) -> list[str]:
+    """Flatten HF answer fields into plain answer strings.
+
+    Handles nested lists, numpy/pyarrow arrays, and accidental stringified
+    Python lists such as ``\"['0.28']\"``.
+    """
+    import ast
+
     if value is None:
         return []
-    if isinstance(value, str):
-        return [value]
-    if isinstance(value, (list, tuple)):
-        return [str(v) for v in value]
-    return [str(value)]
+
+    # numpy / pyarrow array-like
+    if hasattr(value, "tolist") and not isinstance(value, (str, bytes)):
+        try:
+            value = value.tolist()
+        except Exception:
+            pass
+
+    out: list[str] = []
+
+    def _append(item: object) -> None:
+        if item is None:
+            return
+        if isinstance(item, (list, tuple)):
+            for child in item:
+                _append(child)
+            return
+        if hasattr(item, "tolist") and not isinstance(item, (str, bytes)):
+            try:
+                _append(item.tolist())
+                return
+            except Exception:
+                pass
+        text = str(item).strip()
+        if not text:
+            return
+        if text.startswith("[") and text.endswith("]"):
+            try:
+                parsed = ast.literal_eval(text)
+            except (SyntaxError, ValueError):
+                parsed = None
+            if isinstance(parsed, (list, tuple)):
+                for child in parsed:
+                    _append(child)
+                return
+        out.append(text)
+
+    _append(value)
+    # Preserve order while dropping exact duplicates.
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for ans in out:
+        if ans not in seen:
+            seen.add(ans)
+            deduped.append(ans)
+    return deduped
 
 
 def _safe_id(value: object, fallback: str) -> str:
