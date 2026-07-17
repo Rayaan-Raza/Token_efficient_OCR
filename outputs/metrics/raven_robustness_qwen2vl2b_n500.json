@@ -1,0 +1,50 @@
+{
+  "n": 500,
+  "backbone": "Qwen/Qwen2-VL-2B-Instruct",
+  "metrics_tag": "qwen2vl2b",
+  "raven_select": {
+    "anls": 0.6128347936170288,
+    "em": 0.544
+  },
+  "baselines": {
+    "resize": {
+      "anls": 0.5913079622596104,
+      "em": 0.526
+    },
+    "bm25": {
+      "anls": 0.47870477359351044,
+      "em": 0.406
+    },
+    "ler_bops": {
+      "anls": 0.49372993582347213,
+      "em": 0.418
+    },
+    "shortest_nonempty": {
+      "anls": 0.6123838132248718,
+      "em": 0.54
+    }
+  },
+  "vs_resize": {
+    "delta": 0.021526831357418237,
+    "ci95": [
+      0.004890526273414963,
+      0.03934110169277729
+    ],
+    "ci_lower_positive": true
+  },
+  "vs_shortest_nonempty": {
+    "delta": 0.00045098039215686294,
+    "ci95": [
+      0.0,
+      0.001333333333333333
+    ],
+    "ci_lower_positive": false
+  },
+  "p14_note": "beats_shortest on n=500 tagged run",
+  "p15_pass": false,
+  "route_counts": {
+    "resize": 451,
+    "bm25": 35,
+    "ler_bops": 14
+  }
+}

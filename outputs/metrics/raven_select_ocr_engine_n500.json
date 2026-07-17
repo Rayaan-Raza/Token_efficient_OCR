@@ -1,0 +1,17 @@
+{
+  "n": 500,
+  "metrics_tag": "",
+  "engine": "tesseract",
+  "easyocr_path": "C:\\Users\\rayaan\\Desktop\\OCR_paper\\outputs\\metrics\\raven_select_ocr_presence_n500.parquet",
+  "alt_path": "C:\\Users\\rayaan\\Desktop\\OCR_paper\\outputs\\metrics\\raven_select_ocr_presence_n500_tesseract.parquet",
+  "easyocr_anls": 0.8053201504351432,
+  "easyocr_em": 0.706,
+  "alt_anls": 0.8053201504351432,
+  "alt_em": 0.706,
+  "anls_drop_easy_minus_alt": 0.0,
+  "p24_status": "PASS",
+  "thresholds": {
+    "pass": 0.015,
+    "partial": 0.03
+  }
+}

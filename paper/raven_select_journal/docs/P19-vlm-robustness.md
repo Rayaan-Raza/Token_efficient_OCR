@@ -1,38 +1,30 @@
-# P19 — Second-VLM Robustness
+# P19 — VLM Robustness (Qwen2-VL-2B)
 
 ## Scope
 
-Expand Qwen2-VL-2B from n=300 to n=500 using the frozen selector. Primary model
-remains Qwen2.5-VL-3B.
+Repeat the frozen RAVEN-Select three-reader + selection pipeline on DocVQA n=500
+with a second backbone (`Qwen/Qwen2-VL-2B-Instruct`), tagged `qwen2vl2b`.
 
-## Gate
+## Results (method 1.0.0)
 
-| Outcome | Condition |
-|---------|-----------|
-| **FULL ROBUSTNESS** | Beats resize and shortest; both CI lower bounds > 0 |
-| **PARTIAL ROBUSTNESS** | Significantly beats resize only |
-| **FAIL** | Significantly beats neither |
+| Method | ANLS | EM |
+|--------|------|-----|
+| resize | 0.5913 | 0.526 |
+| BM25 | 0.4787 | 0.406 |
+| LER-BOPS | 0.4937 | 0.418 |
+| shortest nonempty | 0.6124 | 0.540 |
+| RAVEN-Select | **0.6128** | **0.544** |
 
-## Baseline (already measured)
+Paired 95% CI (RAVEN-Select − baseline):
 
-Qwen2-VL-2B n=300: RAVEN-Select 0.6271 vs resize 0.5980 vs shortest 0.6269
-→ **PARTIAL** (beats resize; ties shortest).
+| Contrast | Δ ANLS | 95% CI | CI lower > 0 |
+|----------|--------|--------|--------------|
+| vs resize | +0.0215 | [+0.0049, +0.0393] | **yes** |
+| vs shortest nonempty | +0.0005 | [0.0000, +0.0013] | no (boundary) |
 
-## Commands
-
-```text
-python scripts/run_raven_robustness_vlm.py --n 500 --manifest Data/manifests/docvqa_500.jsonl --model Qwen/Qwen2-VL-2B-Instruct --metrics-tag qwen2vl2b
-python scripts/run_raven_select_build_features.py --n 500 --metrics-tag qwen2vl2b
-python scripts/run_raven_select_eval.py --n 500 --metrics-tag qwen2vl2b
-```
-
-## Results
-
-| VLM | n | resize | shortest | RAVEN-Select | Gate |
-|-----|---|--------|----------|--------------|------|
-| Qwen2.5-VL-3B | 500 | 0.7840 | 0.7965 | 0.8053 | main (PASS) |
-| Qwen2-VL-2B | 300 | 0.5980 | 0.6269 | 0.6271 | PARTIAL |
-| Qwen2-VL-2B | 500 | — | — | — | PENDING |
+Status: **PARTIAL robustness** — significant gain vs resize on the weaker 2B backbone;
+gain vs shortest is tiny / not strictly CI-positive. Artifact:
+`outputs/metrics/raven_robustness_qwen2vl2b_n500.json`.
 
 ## Commit
 
