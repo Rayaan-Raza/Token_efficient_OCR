@@ -1,0 +1,86 @@
+{
+  "n": 1000,
+  "metrics_tag": "",
+  "buckets": [
+    {
+      "bucket": "address/location",
+      "support": 23,
+      "resize_anls": 0.8203020296344345,
+      "resize_em": 0.6086956521739131,
+      "shortest_anls": 0.8203020296344345,
+      "shortest_em": 0.6086956521739131,
+      "raven_select_anls": 0.8203020296344345,
+      "raven_select_em": 0.6086956521739131
+    },
+    {
+      "bucket": "amount/currency",
+      "support": 62,
+      "resize_anls": 0.7775741283805799,
+      "resize_em": 0.6290322580645161,
+      "shortest_anls": 0.7833344970441743,
+      "shortest_em": 0.6451612903225806,
+      "raven_select_anls": 0.7833344970441743,
+      "raven_select_em": 0.6451612903225806
+    },
+    {
+      "bucket": "date",
+      "support": 126,
+      "resize_anls": 0.8560405643738977,
+      "resize_em": 0.7857142857142857,
+      "shortest_anls": 0.8659611992945326,
+      "shortest_em": 0.8015873015873016,
+      "raven_select_anls": 0.8691358024691359,
+      "raven_select_em": 0.8095238095238095
+    },
+    {
+      "bucket": "id/code",
+      "support": 17,
+      "resize_anls": 0.8496904024767803,
+      "resize_em": 0.7647058823529411,
+      "shortest_anls": 0.8863562091503269,
+      "shortest_em": 0.7058823529411765,
+      "raven_select_anls": 0.8863562091503269,
+      "raven_select_em": 0.7058823529411765
+    },
+    {
+      "bucket": "number",
+      "support": 75,
+      "resize_anls": 0.8233015873015872,
+      "resize_em": 0.76,
+      "shortest_anls": 0.7963076923076923,
+      "shortest_em": 0.7333333333333333,
+      "raven_select_anls": 0.8363076923076923,
+      "raven_select_em": 0.7733333333333333
+    },
+    {
+      "bucket": "organization",
+      "support": 25,
+      "resize_anls": 0.7932839120716357,
+      "resize_em": 0.52,
+      "shortest_anls": 0.8378899726776965,
+      "shortest_em": 0.56,
+      "raven_select_anls": 0.8405566393443631,
+      "raven_select_em": 0.6
+    },
+    {
+      "bucket": "person/name",
+      "support": 184,
+      "resize_anls": 0.7976193686487806,
+      "resize_em": 0.6630434782608695,
+      "shortest_anls": 0.8002046636363407,
+      "shortest_em": 0.657608695652174,
+      "raven_select_anls": 0.8137373692086882,
+      "raven_select_em": 0.6902173913043478
+    },
+    {
+      "bucket": "phrase/other",
+      "support": 488,
+      "resize_anls": 0.8138061158373632,
+      "resize_em": 0.7151639344262295,
+      "shortest_anls": 0.8151321329687267,
+      "shortest_em": 0.7192622950819673,
+      "raven_select_anls": 0.8154646670102771,
+      "raven_select_em": 0.7274590163934426
+    }
+  ]
+}

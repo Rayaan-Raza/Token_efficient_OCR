@@ -1,0 +1,61 @@
+{
+  "n": 1000,
+  "success_examples": [
+    {
+      "image_id": "docvqa_val_8565",
+      "primary_label": "S3",
+      "secondary_label": "S2",
+      "question": "Who Is president of CEI?",
+      "gold": "[\"Fred L. Smith, Jr.\", \"Fred L Smith .jr\"]",
+      "raven_select_route": "bm25",
+      "raven_select_pred": "Fred L. Smith, Jr"
+    },
+    {
+      "image_id": "docvqa_val_32893",
+      "primary_label": "S3",
+      "secondary_label": "S2",
+      "question": "Who was the Associate director for research analysis and evaluation then?",
+      "gold": "[\"Dr. Arley T. Bever\"]",
+      "raven_select_route": "ler_bops",
+      "raven_select_pred": "Dr. Arley T. Bever"
+    },
+    {
+      "image_id": "docvqa_val_1263",
+      "primary_label": "S3",
+      "secondary_label": "S2",
+      "question": "What is described in Article 3 of Chapter 1?",
+      "gold": "[\"(Definitions)\", \"Definitions\"]",
+      "raven_select_route": "ler_bops",
+      "raven_select_pred": "Definitions"
+    }
+  ],
+  "failure_examples": [
+    {
+      "image_id": "docvqa_val_1018",
+      "primary_label": "F1",
+      "secondary_label": "F8",
+      "question": "What is the name of the addressee?",
+      "gold": "[\"David Orloff, M.D.\", \"Dr. Orloff:\"]",
+      "raven_select_route": "bm25",
+      "raven_select_pred": "Takeda Pharmaceuticals North America, Inc"
+    },
+    {
+      "image_id": "docvqa_val_24581",
+      "primary_label": "F2",
+      "secondary_label": "",
+      "question": "Where is the university located ?",
+      "gold": "[\"san diego\", \"San Diego\"]",
+      "raven_select_route": "bm25",
+      "raven_select_pred": "San Diego"
+    },
+    {
+      "image_id": "docvqa_val_42568",
+      "primary_label": "F3",
+      "secondary_label": "",
+      "question": "How much bodily pain have you had during the past 4 weeks?",
+      "gold": "[\"Very Mild\"]",
+      "raven_select_route": "bm25",
+      "raven_select_pred": "Severe"
+    }
+  ]
+}

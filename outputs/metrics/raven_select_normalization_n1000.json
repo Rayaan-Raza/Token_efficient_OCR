@@ -1,0 +1,143 @@
+{
+  "n": 1000,
+  "metrics_tag": "",
+  "method": "raven_select_rule",
+  "variants": [
+    {
+      "name": "RAVEN-Select-Raw",
+      "variant": "raw",
+      "anls": 0.8186798340626529,
+      "em": 0.715,
+      "route_counts": {
+        "resize": 913,
+        "bm25": 63,
+        "ler_bops": 24
+      },
+      "vs_resize": {
+        "delta": 0.0038183782588297206,
+        "ci95": [
+          -0.006059205038506039,
+          0.014766412020225224
+        ],
+        "ci_lower_positive": false
+      },
+      "vs_shortest_nonempty": {
+        "delta": 0.0013745166598107775,
+        "ci95": [
+          -0.0025027560674619493,
+          0.005573689839572193
+        ],
+        "ci_lower_positive": false
+      }
+    },
+    {
+      "name": "RAVEN-Select",
+      "variant": "conservative",
+      "anls": 0.8234242785070972,
+      "em": 0.723,
+      "route_counts": {
+        "resize": 915,
+        "bm25": 62,
+        "ler_bops": 23
+      },
+      "vs_resize": {
+        "delta": 0.008562822703274164,
+        "ci95": [
+          -0.0018945824134449147,
+          0.0198724323430853
+        ],
+        "ci_lower_positive": false
+      },
+      "vs_shortest_nonempty": {
+        "delta": 0.0061189611042552225,
+        "ci95": [
+          0.0008203696466931762,
+          0.01234097256501668
+        ],
+        "ci_lower_positive": true
+      }
+    },
+    {
+      "name": "RAVEN-Select-NumNorm",
+      "variant": "num_norm",
+      "anls": 0.8245350177678366,
+      "em": 0.72,
+      "route_counts": {
+        "resize": 921,
+        "bm25": 57,
+        "ler_bops": 22
+      },
+      "vs_resize": {
+        "delta": 0.009673561964013427,
+        "ci95": [
+          -0.00046398291377146457,
+          0.0206429125646553
+        ],
+        "ci_lower_positive": false
+      },
+      "vs_shortest_nonempty": {
+        "delta": 0.007229700364994484,
+        "ci95": [
+          0.001994477548595196,
+          0.013093401451489685
+        ],
+        "ci_lower_positive": true
+      }
+    },
+    {
+      "name": "RAVEN-Select-DateNorm",
+      "variant": "date_norm",
+      "anls": 0.809432740073542,
+      "em": 0.703,
+      "route_counts": {
+        "resize": 907,
+        "bm25": 68,
+        "ler_bops": 25
+      },
+      "vs_resize": {
+        "delta": -0.005428715730281077,
+        "ci95": [
+          -0.015741359369524713,
+          0.005487831410410162
+        ],
+        "ci_lower_positive": false
+      },
+      "vs_shortest_nonempty": {
+        "delta": -0.007872577329300018,
+        "ci95": [
+          -0.014491538080267072,
+          -0.002175117501546074
+        ],
+        "ci_lower_positive": false
+      }
+    },
+    {
+      "name": "RAVEN-Select-Fuzzy",
+      "variant": "fuzzy",
+      "anls": 0.8239608729583977,
+      "em": 0.716,
+      "route_counts": {
+        "resize": 920,
+        "bm25": 56,
+        "ler_bops": 24
+      },
+      "vs_resize": {
+        "delta": 0.009099417154574498,
+        "ci95": [
+          -0.001180801866733361,
+          0.019872755236819042
+        ],
+        "ci_lower_positive": false
+      },
+      "vs_shortest_nonempty": {
+        "delta": 0.006655555555555556,
+        "ci95": [
+          0.0015149801587301592,
+          0.01296406746031746
+        ],
+        "ci_lower_positive": true
+      }
+    }
+  ],
+  "note": "OCR grounding is recomputed from cached predictions + OCR boxes only; no production defaults were modified."
+}

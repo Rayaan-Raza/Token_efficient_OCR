@@ -25,11 +25,20 @@ readers and 3-call selectors, with OCR/cache assumptions stated.
 - Appropriate when answer quality matters more than latency
 - One-call pre-router did not beat resize → output information matters
 
-## Results (scaled)
+## Results (n=1000)
 
-Status: **COMPLETE** for n=500 (scaled pending)
+| Method | VLM calls | Median s | ANLS | EM |
+|--------|-----------|----------|------|----|
+| resize | 1 | 2.609 | 0.8149 | 0.706 |
+| BM25 | 1 | 3.141 | 0.7796 | 0.674 |
+| LER-BOPS | 1 | 5.178 | 0.7873 | 0.681 |
+| shortest nonempty | 3 | ~10.928 | 0.8173 | 0.708 |
+| RAVEN-Select | 3 | ~10.928 | 0.8234 | 0.723 |
 
-Artifact: `outputs/metrics/raven_select_cost_n500.json`
+Status: **COMPLETE** for n=1000. Three-call time is the sum of per-reader
+medians and excludes one-time OCR cache construction.
+
+Artifact: `outputs/metrics/raven_select_cost_n1000.json`
 
 
 ## Commit

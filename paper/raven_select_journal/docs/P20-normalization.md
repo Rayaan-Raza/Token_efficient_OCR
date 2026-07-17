@@ -20,17 +20,17 @@ The frozen conservative rule remains the production method.
 **COMPLETE** only when all variants run and the production method is unchanged.
 Any post-inspection choice keeps its distinct variant name.
 
-## Results
+## Results (n=1000)
 
 | Grounding rule | ANLS | EM |
 |----------------|------|----|
-| RAVEN-Select-Raw (raw) | 0.8000 | 0.696 |
-| RAVEN-Select (conservative) | 0.8053 | 0.706 |
-| RAVEN-Select-NumNorm (num_norm) | 0.8064 | 0.704 |
-| RAVEN-Select-DateNorm (date_norm) | 0.7900 | 0.684 |
-| RAVEN-Select-Fuzzy (fuzzy) | 0.8067 | 0.700 |
+| RAVEN-Select-Raw (raw) | 0.8187 | 0.715 |
+| RAVEN-Select (conservative) | 0.8234 | **0.723** |
+| RAVEN-Select-NumNorm (num_norm) | **0.8245** | 0.720 |
+| RAVEN-Select-DateNorm (date_norm) | 0.8094 | 0.703 |
+| RAVEN-Select-Fuzzy (fuzzy) | 0.8240 | 0.716 |
 
-Status: **COMPLETE** for n=500. Production conservative rule unchanged.
+Status: **COMPLETE** for n=1000. Production conservative rule unchanged.
 NumNorm/DateNorm/Fuzzy are exploratory named variants only.
 
 ## Commit

@@ -27,9 +27,13 @@ VISUAL = {
 }
 
 
-def _median_runtime(n: int, key: str, tag: str = "") -> float | None:
+def _median_runtime(
+    n: int, key: str, tag: str = "", *, dataset: str = "docvqa"
+) -> float | None:
     t = f"_{tag}" if tag else ""
-    path = outputs_path("metrics", METHOD_FILES[key].format(n=n, tag=t))
+    path = outputs_path(
+        "metrics", METHOD_FILES[key].format(dataset=dataset, n=n, tag=t)
+    )
     if not path.exists():
         return None
     df = pd.read_csv(path)
@@ -59,7 +63,10 @@ def main() -> None:
     tag = f"_{args.metrics_tag}" if args.metrics_tag else ""
 
     data = load_methods(args.n, METHODS, metrics_tag=args.metrics_tag)
-    runtimes = {m: _median_runtime(args.n, m, args.metrics_tag) for m in METHODS}
+    runtimes = {
+        m: _median_runtime(args.n, m, args.metrics_tag, dataset="docvqa")
+        for m in METHODS
+    }
     sum_runtime = sum(v for v in runtimes.values() if v is not None)
 
     shortest_anls, shortest_em = _shortest_metrics(data)

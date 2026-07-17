@@ -189,8 +189,15 @@ def _write_jsonl(path: Path, rows: Iterable[dict]) -> None:
 
 
 def main() -> None:
-    input_path = outputs_path("labels", "raven_select_taxonomy_review_n500.jsonl")
-    ocr = _load_ocr_presence(500)
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--n", type=int, default=500)
+    args = parser.parse_args()
+    n = args.n
+
+    input_path = outputs_path("labels", f"raven_select_taxonomy_review_n{n}.jsonl")
+    ocr = _load_ocr_presence(n)
     if ocr is None:
         raise FileNotFoundError("Missing OCR presence cache; run run_raven_select_eval.py --rebuild-ocr")
 
@@ -209,14 +216,15 @@ def main() -> None:
         if labeled_record.secondary_label:
             secondary_counts[labeled_record.secondary_label] += 1
 
-    output_jsonl = outputs_path("labels", "raven_select_taxonomy_labeled_n500.jsonl")
+    output_jsonl = outputs_path("labels", f"raven_select_taxonomy_labeled_n{n}.jsonl")
     _write_jsonl(output_jsonl, labeled)
 
-    counts_path = outputs_path("metrics", "raven_select_taxonomy_counts_n500.json")
+    counts_path = outputs_path("metrics", f"raven_select_taxonomy_counts_n{n}.json")
     counts_path.parent.mkdir(parents=True, exist_ok=True)
     with counts_path.open("w", encoding="utf-8") as f:
         json.dump(
             {
+                "n": n,
                 "primary": {k: counts.get(k, 0) for k in SUCCESS_LABELS + FAILURE_LABELS},
                 "secondary": {k: secondary_counts.get(k, 0) for k in SUCCESS_LABELS + FAILURE_LABELS},
                 "total": len(labeled),
@@ -254,11 +262,12 @@ def main() -> None:
         }
 
     examples = {
+        "n": n,
         "success_examples": [_example_payload(r) for r in success_picks],
         "failure_examples": [_example_payload(r) for r in failure_picks],
     }
 
-    examples_path = outputs_path("metrics", "raven_select_qualitative_examples_n500.json")
+    examples_path = outputs_path("metrics", f"raven_select_qualitative_examples_n{n}.json")
     examples_path.parent.mkdir(parents=True, exist_ok=True)
     with examples_path.open("w", encoding="utf-8") as f:
         json.dump(examples, f, indent=2, ensure_ascii=False)
