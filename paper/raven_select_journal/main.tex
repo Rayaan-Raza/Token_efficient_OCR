@@ -8,7 +8,7 @@
 \usepackage{xcolor}
 \usepackage{enumitem}
 
-\title{RAVEN-Select: OCR-Grounded Answer Selection\\for Budgeted Document VQA}
+\title{RAVEN-Select: Value and Limits of OCR-Grounded\\Answer Selection for Budgeted Document VQA}
 
 \author{Mohammad Rayaan Raza\\
 \normalsize Department of Computer Science\\
@@ -82,12 +82,13 @@ from the page or selected patches, then uses answer conciseness to resolve
 multiple grounded candidates.  The method is deliberately simple.  Its novelty
 lies in treating OCR as an inference-time grounding signal for \emph{generated
 answers}, not as a gold-answer diagnostic or as another retrieval target.  The
-contribution is not a new VLM architecture; it is a controlled demonstration
-that OCR-grounded output selection over complementary budgeted readers can
-significantly improve final ANLS and EM.
+contribution is not a new VLM architecture; it is a controlled study showing
+that OCR-grounded output selection can improve over equal-cost answer-selection
+heuristics on DocVQA, while its advantage over strong one-call resize readers
+and its cross-dataset transfer are limited.
 The central claim is that, under a fixed set of budgeted readers, selecting the
 grounded final answer can be more effective than further improving patch
-retrieval.
+retrieval, but the strength of this effect is dataset-dependent.
 
 Our contributions are:
 \begin{itemize}[leftmargin=*]
@@ -99,9 +100,10 @@ Our contributions are:
   \item We evaluate against single readers, equal-cost heuristics, the previous
   learned route regressor, and four learned selectors using question-level
   out-of-fold evaluation.
-  \item On DocVQA $n{=}1000$, RAVEN-Select significantly improves ANLS over
-  shortest nonempty, but not resize; we report this prespecified scale gate as
-  partial and do not proceed to full validation.
+  \item We scale from $n{=}500$ to $n{=}1000$ and report a partial result:
+  RAVEN-Select significantly improves ANLS over the strongest equal-cost
+  heuristic and improves over resize in mean, but does not significantly beat
+  resize; we therefore do not proceed to full validation.
   \item We report exact component, route, cost, second-VLM, second-OCR, and
   cross-dataset analyses, including negative results rather than presenting a
   learned selector as the main contribution.
@@ -323,13 +325,44 @@ consume the same three cached reader outputs, and against one-call readers
 separately.
 
 \section{Results}
+\subsection{Outcome Summary}
+Table~\ref{tab:summary} consolidates every prespecified gate so the study's
+scope is visible at a glance.  The method fully passed only the original
+$n=500$ development gate; at scale, on a second VLM, and across datasets the
+outcomes are partial or negative.  We present these together to make the
+contribution honestly bounded rather than to imply a broadly reliable method.
+
+\begin{table}[t]
+\centering
+\caption{Prespecified gate outcomes.  Significance is on paired ANLS 95\% CIs.}
+\label{tab:summary}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{llc}
+\toprule
+Experiment & Setting & Outcome\\
+\midrule
+DocVQA development & $n=500$ & PASS\\
+DocVQA scale & $n=1000$ & PARTIAL$^{\dagger}$\\
+Second VLM & Qwen2-VL-2B, $n=500$ & PARTIAL$^{\ddagger}$\\
+Second OCR & Tesseract, $n=500$ & PASS\\
+Transfer & InfographicVQA, $n=300$ & FAIL\\
+Transfer & MP contact sheet, $n=300$ & FAIL\\
+\bottomrule
+\end{tabular}
+
+\vspace{2pt}
+{\footnotesize $^{\dagger}$significant vs.\ shortest, not resize;
+$^{\ddagger}$significant vs.\ resize, not shortest.}
+\end{table}
+
 \subsection{Main Result}
 Table~\ref{tab:main1000} reports the primary scale result.  RAVEN-Select
-improves ANLS by 0.0086 over resize and by 0.0061 over shortest nonempty.  EM
-improves by 0.017 and 0.015, respectively.  The paired interval against
-shortest nonempty has a positive lower bound, but the interval against resize
-crosses zero.  The prespecified gate is therefore \emph{partial}, and we do not
-run or claim a full-validation result.
+improves ANLS by 0.0086 over resize and by 0.0061 over shortest nonempty.  All
+significance tests are on ANLS; EM is reported descriptively, improving from
+0.706 (resize) and 0.708 (shortest nonempty) to 0.723 without paired intervals.
+The paired ANLS interval against shortest nonempty has a positive lower bound,
+but the interval against resize crosses zero.  The prespecified gate is
+therefore \emph{partial}, and we do not run or claim a full-validation result.
 
 \begin{table}[t]
 \centering
@@ -657,6 +690,19 @@ setting, answer grounding matters more than another patch-retrieval refinement.
 Our raw OCR-text augmentation was also not the winning interface.  This is
 consistent with work arguing that structured OCR/layout compression can be more
 effective than simply appending raw OCR strings to a VLM \cite{docvlm}.
+
+\subsection{Why Transfer Fails}
+The failed InfographicVQA transfer suggests that RAVEN-Select is not a universal
+output selector.  Its rule assumes that concise OCR-grounded spans are preferable
+and that resize remains a reliable global reader.  In InfographicVQA, BM25 is the
+strongest single path (0.3713 ANLS versus 0.3167 for the frozen selector),
+indicating that dataset-specific reader ordering can dominate the simple
+selection rule.  Because the tie-break and fallback order (resize $\to$ BM25
+$\to$ LER-BOPS) and the shortest-answer preference were frozen on DocVQA, they
+are over-aligned to DocVQA output patterns and do not adapt when a different
+reader is dominant.  This points to an adaptive-ordering variant as future work,
+which must be trained and validated on held-out data rather than retuned on these
+transfer results.
 
 \subsection{Simplicity Versus Learned Routing}
 RAVEN-Select has no learned parameters.  This is a strength only because the

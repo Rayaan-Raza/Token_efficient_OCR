@@ -43,6 +43,19 @@ the audited artifacts.
 - Abstract, setup, results, limitations, conclusion, and reproducibility
   commands reconciled with the scaled artifacts.
 
+## Framing revision (professor verdict)
+
+- Retitled to "Value and Limits of OCR-Grounded Answer Selection".
+- Softened the intro overclaim to a controlled DocVQA study with limited
+  transfer, and reframed contribution 4 as a scaling study.
+- EM is now explicitly descriptive (no EM confidence intervals); significance
+  is ANLS-only.
+- Added a "Why Transfer Fails" discussion subsection (BM25 dominates on
+  InfographicVQA; frozen order is DocVQA-aligned).
+- Added Table `tab:summary` consolidating PASS/PARTIAL/FAIL gate outcomes.
+- Any adaptive-ordering variant is future work on held-out data, not a retune
+  of frozen v1.0.0.
+
 ## Audit safeguards
 
 - No full-validation result is claimed.
