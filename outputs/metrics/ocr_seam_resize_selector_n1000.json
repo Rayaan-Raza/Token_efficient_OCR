@@ -1,0 +1,89 @@
+{
+  "n": 1000,
+  "dataset": "docvqa",
+  "original_raven_select": {
+    "anls": 0.8234242785070972,
+    "em": 0.723
+  },
+  "original_resize": {
+    "anls": 0.814861455803823,
+    "em": 0.706
+  },
+  "variants": [
+    {
+      "variant": "margin_crop",
+      "fullpage_method": "margin_crop_resize",
+      "anls": 0.8278390352416894,
+      "em": 0.734,
+      "fullpage_alone_anls": 0.819682648759069,
+      "vs_resize": {
+        "delta": 0.012977579437866253,
+        "ci95": [
+          -0.0018743735330982482,
+          0.028780116387585115
+        ],
+        "ci_lower_positive": false
+      },
+      "vs_original_raven": {
+        "delta": 0.004414756734592089,
+        "ci95": [
+          -0.006485355618724537,
+          0.014396358150271824
+        ],
+        "ci_lower_positive": false
+      },
+      "vs_own_fullpage_reader": {
+        "delta": 0.008156386482620397,
+        "ci95": [
+          -0.0035415059163913655,
+          0.0199699973082972
+        ],
+        "ci_lower_positive": false
+      },
+      "route_counts": {
+        "resize": 902,
+        "bm25": 79,
+        "ler_bops": 19
+      },
+      "method": {
+        "method_id": "raven_select",
+        "method_version": "1.0.0",
+        "method_name": "RAVEN-Select",
+        "readers": [
+          "resize",
+          "bm25",
+          "ler_bops"
+        ],
+        "tie_break_order": [
+          "resize",
+          "bm25",
+          "ler_bops"
+        ],
+        "normalization": "conservative_lowercase_punct_ws",
+        "grounding": "page_or_route_patch_ocr_substring",
+        "selection": "shortest_ocr_grounded_else_shortest_nonempty",
+        "vlm_calls": 3,
+        "production_flags": {
+          "use_ocr": true,
+          "use_length": true,
+          "use_answer_type": false,
+          "use_consensus": false
+        },
+        "leakage_excluded": [
+          "gold_answer",
+          "anls_to_gold",
+          "em_to_gold",
+          "answer_in_full_image_ocr",
+          "answer_in_selected_patch_ocr",
+          "oracle_route"
+        ],
+        "role": "production",
+        "comparator_model": "raven_select_rule"
+      },
+      "method_version": "1.0.0",
+      "metrics_tag": "seam_margin_crop_resize",
+      "gate_status": "FAIL",
+      "gate_passed": false
+    }
+  ]
+}

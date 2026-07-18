@@ -26,6 +26,7 @@ from src.answer_selection.train import evaluate_selector
 from src.extraction.gates import RevGateResult, write_gate_report
 from src.metrics.statistical_tests import bootstrap_ci
 from src.preprocessing.ocr_page_compress import METHOD_LABELS
+from src.routing.train import load_methods
 from src.utils.logging_utils import setup_experiment_logging
 from src.utils.paths import outputs_path
 import numpy as np
@@ -106,6 +107,15 @@ def _swap_fullpage_csv(n: int, fullpage_method: str, dataset: str = "docvqa") ->
     return tag
 
 
+def _original_resize_anls_vec(n: int, dataset: str = "docvqa") -> tuple[list[str], np.ndarray, float, float]:
+    """Load true one-call resize ANLS aligned to load_methods ID order."""
+    data = load_methods(n, ["resize", "bm25", "ler_bops"], dataset=dataset)
+    ids = list(data.index)
+    resize_anls = data["anls__resize"].astype(float).values
+    resize_em = float(data["em__resize"].mean())
+    return ids, resize_anls, float(resize_anls.mean()), resize_em
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--n", type=int, default=1000)
@@ -128,7 +138,15 @@ def main() -> None:
     orig = evaluate_selector(
         args.n, model_name="raven_select_rule", dataset=args.dataset
     )
-    logger.info("Original RAVEN-Select ANLS=%.4f EM=%.4f", orig["anls"], orig["em"])
+    ids, resize_anls_vec, resize_anls_mean, resize_em_mean = _original_resize_anls_vec(
+        args.n, dataset=args.dataset
+    )
+    logger.info(
+        "Original RAVEN-Select ANLS=%.4f EM=%.4f | resize alone ANLS=%.4f",
+        orig["anls"],
+        orig["em"],
+        resize_anls_mean,
+    )
 
     summary_rows = []
     for variant in [v.strip() for v in args.variants.split(",") if v.strip()]:
@@ -153,18 +171,29 @@ def main() -> None:
         )
         write_select_summary(result, tag=tag, dataset=args.dataset)
 
-        # Paired vs original RAVEN-Select
-        d_orig = bootstrap_ci(
-            (np.array(result["anls_vec"]) - np.array(orig["anls_vec"])).tolist()
-        )
+        sel_anls = np.array(result["anls_vec"], dtype=float)
+        orig_anls = np.array(orig["anls_vec"], dtype=float)
+        if len(sel_anls) != len(resize_anls_vec) or len(sel_anls) != len(orig_anls):
+            raise RuntimeError(
+                f"vector length mismatch: sel={len(sel_anls)} "
+                f"resize={len(resize_anls_vec)} orig={len(orig_anls)}"
+            )
+
+        d_resize = bootstrap_ci((sel_anls - resize_anls_vec).tolist())
+        vs_resize = {
+            "delta": d_resize[0],
+            "ci95": [d_resize[1], d_resize[2]],
+            "ci_lower_positive": d_resize[1] > 0,
+        }
+        d_orig = bootstrap_ci((sel_anls - orig_anls).tolist())
         vs_orig = {
             "delta": d_orig[0],
             "ci95": [d_orig[1], d_orig[2]],
             "ci_lower_positive": d_orig[1] > 0,
         }
-        vs_resize = result["vs_resize"]
+        vs_own_fullpage = result["vs_resize"]
         logger.info(
-            "%s selector ANLS=%.4f EM=%.4f vs_resize_ci=%s vs_orig_ci=%s",
+            "%s selector ANLS=%.4f EM=%.4f vs_true_resize_ci=%s vs_orig_ci=%s",
             variant,
             result["anls"],
             result["em"],
@@ -176,8 +205,10 @@ def main() -> None:
             "fullpage_method": fullpage,
             "anls": result["anls"],
             "em": result["em"],
+            "fullpage_alone_anls": float(result["baselines"]["resize"]["anls"]),
             "vs_resize": vs_resize,
             "vs_original_raven": vs_orig,
+            "vs_own_fullpage_reader": vs_own_fullpage,
             "route_counts": result["route_counts"],
             "method": method_stamp(role="production", comparator_model="raven_select_rule"),
             "method_version": METHOD_VERSION,
@@ -188,7 +219,7 @@ def main() -> None:
                 variant=variant,
                 n=args.n,
                 seam_anls=float(result["anls"]),
-                resize_anls=float(result["baselines"]["resize"]["anls"]),
+                resize_anls=resize_anls_mean,
                 orig_anls=float(orig["anls"]),
                 vs_resize=vs_resize,
                 vs_orig=vs_orig,
@@ -202,6 +233,10 @@ def main() -> None:
         "n": args.n,
         "dataset": args.dataset,
         "original_raven_select": {"anls": orig["anls"], "em": orig["em"]},
+        "original_resize": {
+            "anls": resize_anls_mean,
+            "em": resize_em_mean,
+        },
         "variants": summary_rows,
     }, indent=2), encoding="utf-8")
     print(json.dumps({"wrote": str(out), "n_variants": len(summary_rows)}, indent=2))
